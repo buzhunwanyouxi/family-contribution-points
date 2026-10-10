@@ -14,13 +14,13 @@
 | task-temp | `apps/api/src/task` | 空闲 | — | — | — | C1-C5 | 临时任务、悬赏冻结 |
 | assignment | `apps/api/src/assignment` | 空闲 | — | — | — | D1-D5 | 接取、退单、兜底指派 |
 | **scoring** | `apps/api/src/scoring` | **已完成(骨架)** | 项目初始化 | DSH | 2026-10-10 | E1-E14 | 纯函数 `settle()` + 单测已就位,**任何人不得另写第二份结算实现** |
-| **media-proof** | `apps/api/src/media` | **空闲** | — | — | — | **D6-D9** | **证据 72h 过期 + 到期提醒 + 删除前置条件(先结算)** |
+| **media-proof** | `apps/api/src/media` | **进行中** | 发起人(buzhunwanyouxi) | DSH | 2026-10-10 | **D6-D9** | 证据 72h 过期纯逻辑已开工;上传接口签名已冻结,实现待做 |
 | points | `apps/api/src/points` | 空闲 | — | — | — | F1-F8 | 流水表 + 三数汇总 + 恒等校验 |
 | wish | `apps/api/src/wish` | 空闲 | — | — | — | G1-G8 | 愿望、定价、众筹、兑现 |
 | notify | `apps/api/src/notify` | 空闲 | — | — | — | H1-H8 | 微信模板消息 / 短信 / 红点 |
 | report | `apps/api/src/report` | 空闲 | — | — | — | I1-I6 | 贡献占比、月度报告 |
 | shared | `packages/shared` | 空闲 | — | — | — | — | **共享文件,改动前先在日志里声明** |
-| web-app | `apps/web` | 空闲 | — | — | — | P01-P19 | PWA 前端、页面清单 |
+| web-app | `apps/web` | **进行中** | 发起人(buzhunwanyouxi) | DSH | 2026-10-10 | P01-P19 | 前端骨架 + API 客户端 + 登录/建家/首页 |
 | infra | 根目录 / `.github` | 空闲 | — | — | — | 第 10 章 | CI、部署、备案 |
 | docs | `docs/` | 空闲 | — | — | — | — | 规则文档维护(改规则必须人类拍板) |
 

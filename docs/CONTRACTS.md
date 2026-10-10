@@ -20,14 +20,47 @@
 |---|---|---|---|---|---|---|---|
 | 1 | GET | `/health` | — | `{ok, service, time}` | 已定稿 | 项目初始化 | 2026-10-10 |
 | 2 | POST | `/api/scoring/preview` | `{maxPoints, scores:[{scorerId,isOwner,percent}]}` | `{percent, points, settledBy, provisional, rawPercent, otherScorers}` | 已定稿 | 项目初始化 | 2026-10-10 |
-| 3 | POST | `/api/families` | `{name, timezone?}` | `{family, inviteCode}` | 待认领 | — | — |
-| 4 | POST | `/api/families/join` | `{inviteCode, nickname}` | `{membership}` | 待认领 | — | — |
-| 5 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
-| 6 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
-| 7 | POST | `/api/families/:fid/instances/:iid/proof` | multipart 文件 | `{media, expireAt}` | 待认领 | — | — |
-| 8 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
-| 9 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
-| 10 | GET | `/api/families/:fid/points/:uid` | — | `{earned, available, spent, frozen}` | 待认领 | — | — |
+| 3 | POST | `/api/auth/register` | `{account, password, nickname}` | `{token, user, families}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 4 | POST | `/api/auth/login` | `{account, password}` | `{token, user, families}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 5 | GET | `/api/auth/me` | header: Bearer | `{user, families}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 6 | POST | `/api/families` | `{name, timezone?}` | `{family, membership}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 7 | POST | `/api/families/join` | `{inviteCode, nickname?}` | `{family, membership}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(待实现)** | 车道 C | 2026-10-10 |
+| 11 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
+| 12 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
+| 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
+| 14 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
+| 15 | GET | `/api/families/:fid/points/:uid` | — | `{earned, available, spent, frozen}` | 待认领 | — | — |
+
+### 前端调用约定(车道 C 冻结,所有人遵守)
+
+> ⚠️ **实现前必读**:积分四项数值的语义以 `apps/api/src/points/ledger.ts` 顶部注释为准。
+> PROJECT_GUIDE 的 F6 公式与 F7 存在口径冲突,已上报(见 ops/W1-C 阻塞项 1)。在人类拍板前,
+> **不要在其他模块另写一套积分口径** —— 那是本轮最容易制造"矛盾代码"的地方。
+
+前端**只认上面这张表**。为让前端可以在后端未完成时先跑起来,约定如下:
+
+```ts
+// 账号:一个字段同时接受手机号与邮箱,由后端判断
+type Account = string;
+
+interface UserSummary  { id: string; nickname: string; avatarUrl?: string; phone?: string; email?: string }
+interface FamilySummary{ id: string; name: string; role: 'owner'|'admin'|'member'|'child';
+                         points: number; earnedPoints: number; spentPoints: number; frozenPoints: number }
+interface MemberSummary{ userId: string; nickname: string; avatarUrl?: string;
+                         role: 'owner'|'admin'|'member'|'child'; joinedAt: string }
+interface AuthResult   { token: string; user: UserSummary; families: FamilySummary[] }
+```
+
+1. **路径前缀**:前端所有请求走 `/api/...`(开发环境由 Vite 代理到 `http://localhost:3000`)。
+2. **认证**:登录/注册成功后前端把 `token` 存 `localStorage`,后续请求带 `Authorization: Bearer <token>`。
+3. **401 的处理**:前端收到 401 一律清除本地 token 并跳回登录页——后端**不要**返回 302 或 HTML。
+4. **错误体**:所有失败响应必须是 `{error: string, details?: unknown}`,HTTP 状态码语义化。
+5. **`families` 数组**:登录/注册/`me` 三个接口都返回它,前端据此渲染家庭切换器;**没有家庭时返回空数组,不要报错**。
+6. **积分三数**:`FamilySummary` 里的 `points / earnedPoints / spentPoints / frozenPoints` 必须同时返回,
+   前端首页要显示三个数字(F2),缺字段视为接口未完成。
 
 **约定**
 

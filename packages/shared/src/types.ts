@@ -21,6 +21,7 @@ export type PointsReason =
   | 'task_done'
   | 'bounty_hold'
   | 'bounty_refund'
+  | 'bounty_payout'
   | 'wish_contribute'
   | 'redeem'
   | 'reverse'
