@@ -66,7 +66,10 @@ interface AuthResult   { token: string; user: UserSummary; families: FamilySumma
 1. **路径前缀**:前端所有请求走 `/api/...`(开发环境由 Vite 代理到 `http://localhost:3000`)。
 2. **认证**:登录/注册成功后前端把 `token` 存 `localStorage`,后续请求带 `Authorization: Bearer <token>`。
 3. **401 的处理**:前端收到 401 一律清除本地 token 并跳回登录页——后端**不要**返回 302 或 HTML。
-4. **错误体**:所有失败响应必须是 `{error: string, details?: unknown}`,HTTP 状态码语义化。
+4. **错误体**:所有失败响应必须是 `{error: string, message?: string, details?: unknown}`,HTTP 状态码语义化。
+   - `error` = **稳定机器码**(如 `user_exists` / `invalid_credentials` / `validation_error`),前端据此做分支判断;
+   - `message` = **可直接展示给家人的中文文案**(车道 A 在 #3-#5 首先使用,车道 C 前端已按
+     `message ?? error` 渲染)。**新增字段必须是增量**,不得改动或移除既有字段。
 5. **`families` 数组**:登录/注册/`me` 三个接口都返回它,前端据此渲染家庭切换器;**没有家庭时返回空数组,不要报错**。
 6. **积分三数**:`FamilySummary` 里的 `points / earnedPoints / spentPoints / frozenPoints` 必须同时返回,
    前端首页要显示三个数字(F2),缺字段视为接口未完成。
@@ -74,7 +77,7 @@ interface AuthResult   { token: string; user: UserSummary; families: FamilySumma
 **约定**
 
 - 认证:`Authorization: Bearer <jwt>`;所有 `/api/families/:fid/**` 必须校验调用者属于 `:fid`,**跨家庭访问一律 403**。
-- 错误:`{error: string, details?: unknown}`,状态码语义化。
+- 错误:`{error: string, message?: string, details?: unknown}`,状态码语义化。
 - 金额/积分:JSON 数字,保留 2 位小数;百分比为 0-100 整数。
 
 ---
