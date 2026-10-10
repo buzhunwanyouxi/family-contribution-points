@@ -14,6 +14,7 @@
 | 3 | `docs/CONTRACTS.md` | 你要用的接口 / 数据表有没有定稿、归谁维护 |
 | 4 | `docs/ai-logs/OWNERS.md` | 你打算动的模块,**现在有没有别人在做** |
 | 5 | `docs/ai-logs/` 里最近 5 篇 `ops/` | 别人刚改了什么、留了什么坑 |
+| 6 | `docs/GITHUB-TOKEN-SETUP.md` | **只有当你推不上去时**(403 / `push=false` / 令牌里选不到本仓库)才读:细粒度令牌的 Resource owner 必须是 `buzhunwanyouxi`,不是你自己 |
 
 ## 二、硬性禁令(违反即视为无效工作)
 

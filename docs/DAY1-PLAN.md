@@ -191,6 +191,8 @@ await app.register(mediaRoutes, { prefix: '/api/media' });      // C
 6. **不许在 17:30 之后继续写功能代码**(要留给日志和 PR)。
 7. **不许提交 `.env`、密钥、任何照片/视频文件**。
 8. **不许把 token / API key 贴进聊天记录、日志或提交**(这一条是血泪教训,初始化时就踩过)。
+9. **不许用"细粒度令牌 + 自己的 Resource owner"** —— 那样永远选不到本仓库。
+   遇到 403 / `push=false` / 令牌里找不到本仓库,直接看 [`GITHUB-TOKEN-SETUP.md`](GITHUB-TOKEN-SETUP.md)。
 
 ---
 
