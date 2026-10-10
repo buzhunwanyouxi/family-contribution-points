@@ -6,10 +6,23 @@
 
 状态只有三种:`空闲` / `进行中` / `已完成`(可被再次认领做迭代,但要先标 `进行中`)。
 
+## 人员对照表(以 **GitHub 登录名** 为准)
+
+| 代号 | 名字 | GitHub 登录名 | 车道 | 独占目录 |
+|---|---|---|---|---|
+| A | Miao | `sun-521-s` | auth | `apps/api/src/auth/**` |
+| B | 喵 | `MIAO98J` | family | `apps/api/src/family/**` |
+| C | 发起人 | `buzhunwanyouxi` | scoring 作业 + 前端 | `apps/api/src/media/**`、`apps/api/src/points/**`、`apps/web/**` |
+
+> ⚠️ **2026-10-10 分工对调**:最初 A=`MIAO98J` / B=`sun-521-s`,两人线下对调为 **A=`sun-521-s` / B=`MIAO98J`**。
+> 本表、`docs/DAY1-PLAN.md` 已按新分工更新。
+>
+> **注意显示名不等于登录名**:`MIAO98J` 的显示名是 `Tousnad-layer sonw`;看 `git log`、开 PR、发邀请时请认**登录名**。
+
 | 模块 | 目录 | 状态 | 负责人(人类) | AI 工具 | 起始日期 | 关联需求 | 备注 |
 |---|---|---|---|---|---|---|---|
-| auth | `apps/api/src/auth` | 空闲 | — | — | — | A1, A3, A8 | 登录注册、PIN 登录 |
-| family | `apps/api/src/family` | 空闲 | — | — | — | A2, A4-A7 | 家庭创建、邀请码、角色 |
+| auth | `apps/api/src/auth` | **进行中** | Miao(`sun-521-s`) | — | 2026-10-10 | A1, A3, A8 | 车道 A。接口已由 C 冻结(CONTRACTS #3-#5),实现进行中 |
+| family | `apps/api/src/family` | **进行中** | 喵(`MIAO98J`) | — | 2026-10-10 | A2, A4-A7 | 车道 B。接口已由 C 冻结(CONTRACTS #6-#9),实现进行中 |
 | task-template | `apps/api/src/template` | 空闲 | — | — | — | B1-B8 | **仅创始人可写** |
 | task-temp | `apps/api/src/task` | 空闲 | — | — | — | C1-C5 | 临时任务、悬赏冻结 |
 | assignment | `apps/api/src/assignment` | 空闲 | — | — | — | D1-D5 | 接取、退单、兜底指派 |
