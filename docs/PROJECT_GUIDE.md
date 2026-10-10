@@ -11,8 +11,8 @@
 > - 【补充】 = 在用户方案基础上补充的完善点(必做或强烈建议)
 > - 【待确认】= 尚未拍板,开发前需要用户确认;未确认前按文档中的「默认取值」执行
 >
-> **状态**:v1.2 —— 定稿。可据此开工,也可直接作为 GitHub 开源仓库的 `docs/PROJECT_GUIDE.md` 使用
-> **最后更新**:本轮讨论
+> **状态**:v1.3 —— 定稿。可据此开工,也可直接作为 GitHub 开源仓库的 `docs/PROJECT_GUIDE.md` 使用
+> **最后更新**:v1.3 裁决了 F6 积分恒等式冲突(见第 16 章决策记录)
 > **配套文档(必读)**:[`AGENTS.md`](../AGENTS.md) · [`docs/ai-logs/`](./ai-logs/) · [`docs/CONTRACTS.md`](./CONTRACTS.md) · [`docs/ROADMAP.md`](./ROADMAP.md) · [`docs/ai-logs/OWNERS.md`](./ai-logs/OWNERS.md)
 
 ---
@@ -236,9 +236,9 @@ function settle(instance) -> points:
 | F1 | 【补充】积分**只走流水表**,只追加、不修改、可追溯;每条记录含:分值、原因、关联任务、时间、操作者 | 【补充】 |
 | F2 | 【已定 v1.2】**必须同时展示三个数字:①累计获得 ②当前可用 ③已消费**。这是用户明确要求的核心口径,任何页面不得只显示一个"余额" | 【已定 v1.2】 |
 | F3 | 【补充】发布悬赏时**预冻结**积分,任务完成解冻转给执行人,任务过期解冻退还 | 【补充】 |
-| F4 | 【补充】"累计获得"只统计**赚取类**流水(`earned=1`),**永不因消费、投入愿望或冲正而减少**;它代表"这个人一共为家庭贡献了多少",是荣誉口径 | 【补充 v1.2】 |
-| F5 | 【补充】口径公式(实现必须与此一致):<br>`累计获得 = Σ earned 流水（只增不减）`<br>`当前可用 = Σ 全部流水 delta（含赚取、消费、投入愿望、冲正）`<br>`已消费 = Σ |负向流水|（兑换奖励 + 投入愿望 + 冲正扣回）`<br>`冻结中(frozen_points)` 单独展示:`可用余额 = 当前可用 − 冻结中` | 【补充 v1.2】 |
-| F6 | 【补充】**恒等校验**:`累计获得 − 已消费 − 冻结中 = 可用余额`,该等式必须永远成立;每日定时任务校验一次,不成立即告警(说明并发写入出了 bug) | 【补充 v1.2】 |
+| F4 | 【已定 v1.3】"累计获得"只统计**赚取类**流水(`earned=1`),**不因消费或投入愿望而减少**(荣誉口径)。**唯一例外是 E8 冲正**:创始人补分重算时,原奖励被冲正,累计获得随之减少 —— 否则 F6 恒等式无法成立。系统另存一个**只增不减的 `earnedTotal`**(历史累计发放额)用于徽章与报告 | 【已定 v1.3】 |
+| F5 | 【已定 v1.3】口径公式(实现必须与此一致,**唯一实现见 `apps/api/src/points/ledger.ts`**):<br>`累计获得 = Σ 赚取类流水 − Σ 冲正流水`<br>`已消费 = 兑换 + 投入愿望 + 悬赏支付`<br>`当前可用 = 累计获得 − 已消费`(就是 `Membership.points` 列)<br>`冻结中 = 当前可用 中被预留的子集`<br>`当前可花 = 当前可用 − 冻结中` | 【已定 v1.3】 |
+| F6 | 【已定 v1.3】**恒等校验**:`累计获得 − 已消费 = 当前可用`;配合 `当前可花 = 当前可用 − 冻结中`。每日定时任务(J7)校验一次,不成立即告警(说明并发写入出了 bug)。<br>⚠️ 本条 v1.3 修订过:原表述 `累计获得 − 已消费 − 冻结中 = 可用余额` 与 F4/C3 冲突(会导致"累计获得"必须随悬赏退款上升或下降),已由产品负责人裁决改为现表述,详见第 16 章 | 【已定 v1.3】 |
 | F7 | 【补充】不可转让、不可交易、不可透支、不涉及真实货币;**余额永不为负**(任何扣减前先校验可用余额) | 【补充】 |
 | F8 | 【补充】**积分展示位置**:首页个人卡片、P11 积分流水页顶部、任务卡"完成后可得"、愿望橱窗"我的可用分"、结算通知文案 | 【补充 v1.2】 |
 
@@ -426,14 +426,15 @@ Family(id, name, owner_id, invite_code, invite_expire_at, timezone, created_at)
 
 Membership(id, user_id, family_id,
            role ENUM('owner','admin','member','child'),
-           points INT DEFAULT 0,           -- 当前可用积分(= 全部流水之和,含冻结)
-           frozen_points INT DEFAULT 0,    -- 悬赏预冻结,单独展示
-           earned_points DECIMAL(10,2) DEFAULT 0,  -- 累计获得(只增不减,荣誉口径)
-           spent_points DECIMAL(10,2) DEFAULT 0,   -- 已消费(兑换 + 投入愿望)
+           points INT DEFAULT 0,           -- 当前可用积分 = earned_points - spent_points(F5)
+           frozen_points INT DEFAULT 0,    -- 悬赏预留,是 points 的子集,单独展示
+           earned_points DECIMAL(10,2) DEFAULT 0,  -- 累计获得(除 E8 冲正外只增)
+           spent_points DECIMAL(10,2) DEFAULT 0,   -- 已消费(兑换 + 投入愿望 + 悬赏支付)
            -- 【v1.2 已删除】credit_score 信用分字段,不再需要
            joined_at)
   UNIQUE(user_id, family_id)
-  -- 恒等校验:earned_points - spent_points - frozen_points = points
+  -- 【v1.3 恒等校验】earned_points - spent_points = points
+  --              且 0 <= frozen_points <= points
 
 -- ========== 固定任务(仅 owner 可写)==========
 TaskTemplate(id, family_id, title, description,
@@ -490,7 +491,9 @@ Score(id, ref_type, ref_id, scorer_id,
 
 -- ========== 积分账本(只追加,不修改)==========
 PointsTxn(id, user_id, family_id, delta DECIMAL(6,2),
-          reason ENUM('任务完成','悬赏支出','悬赏退回','愿望投入','兑换','冲正','管理员调整'),
+          reason ENUM('任务完成','悬赏预留','悬赏释放','悬赏支付','愿望投入','兑换','冲正','管理员调整')
+                 -- 代码枚举:task_done / bounty_hold / bounty_refund / bounty_payout
+                 --          / wish_contribute / redeem / reverse / admin_adjust
           earned BOOL DEFAULT false,      -- true = 赚取类,累计获得只统计这一类
           ref_type, ref_id,
           balance_after DECIMAL(10,2),    -- 写入时的可用余额快照
@@ -498,10 +501,11 @@ PointsTxn(id, user_id, family_id, delta DECIMAL(6,2),
 
 -- ========== 积分汇总(可由 PointsTxn 全量重算,用作缓存与对账)==========
 PointsSummary(user_id, family_id,
-              earned_total DECIMAL(10,2),   -- 累计获得
-              available     DECIMAL(10,2),  -- 当前可用
+              earned_total DECIMAL(10,2),   -- 累计获得(净值,除冲正外只增)
+              available     DECIMAL(10,2),  -- 当前可用 = earned_total - spent_total
               spent_total   DECIMAL(10,2),  -- 已消费
-              frozen        DECIMAL(10,2),  -- 冻结中
+              frozen        DECIMAL(10,2),  -- 冻结中(available 的子集)
+              ever_earned   DECIMAL(10,2),  -- 历史累计发放额,只增不减(徽章/报告用)
               updated_at)
   -- 三个数字必须从同一事务内更新,禁止各自独立累加
 
@@ -552,7 +556,7 @@ AuditLog(id, family_id, actor_id, action, target_type, target_id, before_json, a
 | `expireProofMedia` | **每小时** | 删除到期证据(72h),置 `已过期` 并记录 `deleted_at`;**前置条件:先确保结算** | **D8 / D9 / 4.10** |
 | `remindMediaExpiry` | 每天 2 次 | 证据剩余 24h / 6h 提醒 | H7 |
 | `ownerScoreDigest` | 每天 1 次 | 创始人待评分汇总推送 | H3 / E10 |
-| `reconcilePoints` | 每天 03:00 | 校验 `累计获得 − 已消费 − 冻结 = 可用`,不等则告警 | F6 |
+| `reconcilePoints` | 每天 03:00 | 校验 `累计获得 − 已消费 = 当前可用` 且 `0 ≤ 冻结 ≤ 可用`,不等则告警 | F6 |
 | `monthlyReport` | 每月 1 日 | 生成月度家庭报告 | I5 |
 
 ---
@@ -671,10 +675,11 @@ AuditLog(id, family_id, actor_id, action, target_type, target_id, before_json, a
 | **创始人 / owner** | 家庭创建者,唯一能建固定任务、必须参与评分 |
 | **共同管理员 / admin** | 创始人指定的助手,防止单点故障 |
 | **履约记录 / Discipline** | 【v1.2】违规事实的记录(未履约、弃单、被驳回、破损),**不扣积分**;连续 3 次触发 7 天冷静期。原"信用分"机制已删除 |
-| **累计获得 / earned_points** | 赚取类积分总和,**只增不减**;代表"一共为家庭贡献了多少",是荣誉口径 |
-| **当前可用 / points** | 全部流水之和,即真正能花的余额(`可用余额 = 当前可用 − 冻结中`) |
-| **已消费 / spent_points** | 兑换奖励 + 投入愿望 + 冲正扣回的总额 |
-| **冻结中 / frozen_points** | 发布悬赏时预扣的部分,任务完成转给执行人,过期退还 |
+| **累计获得 / earned_points** | 赚取类积分减去冲正后的净值,**除 E8 冲正外只增不减**;代表"一共为家庭贡献了多少",是荣誉口径 |
+| **当前可用 / points** | `累计获得 − 已消费`,即真正能花的余额(F5);`当前可花 = 当前可用 − 冻结中` |
+| **已消费 / spent_points** | 兑换奖励 + 投入愿望 + 悬赏支付的总额 |
+| **冻结中 / frozen_points** | 【v1.3】**当前可用中被预留的子集**(不是额外的一笔钱);发布悬赏时预留,过期释放,完成时连同余额一起支付给执行人 |
+| **历史累计发放额 / earnedTotal** | 只增不减的发放总额,用于徽章与月度报告,不参与 F6 恒等式 |
 | **证据保留期 / PROOF_TTL** | 【v1.2】任务照片视频只保留 **72 小时**,到期自动删除,删除前有倒计时与提醒(见 4.10) |
 | **AI 操作日志 / ops log** | 【v1.2】`docs/ai-logs/ops/` 下,面向其他 AI 的事实记录:改了什么、接口怎么变、遗留什么(见 14.4A) |
 | **操作报告 / report** | 【v1.2】`docs/ai-logs/reports/` 下,面向人类操作者的说明:做了什么、怎么验证、有什么风险(见 14.4B) |
@@ -909,6 +914,8 @@ AI 之间能靠日志对齐信息,但下面两件事必须由**人类操作者**
 | **v1.2** | 本轮讨论 | **积分必须同时展示三个数字:累计获得 / 当前可用 / 已消费**(新增 F2、F4-F8,含恒等校验 `累计获得 − 已消费 − 冻结 = 可用`) | 用户 |
 | **v1.2** | 本轮讨论 | **定位升级为 GitHub 开源共创项目**:新增第 14 章「AI 协作规范」——仓库结构、每轮工作十步流程、五条协作铁律、**AI 操作日志(ops)与操作报告(reports)双文档模板**、模块认领表、共享文件清单、接口契约总表 CONTRACTS.md、人类兜底环节;第 12 章新增 Q13-Q16(许可证、外部 PR、72h 是否可配置等) | 用户 |
 | **v1.2** | 本轮讨论 | 新增 7.2 定时任务清单(8 个作业,含证据过期清理与积分对账);风险表新增"证据删了才想翻案""多人多 AI 写出矛盾代码"两项 | 补充 |
+| **v1.3** | 本轮讨论 | **裁决 F6 恒等式冲突**(实现车道 C 时发现):原表述 `累计获得 − 已消费 − 冻结 = 可用` 与 F4(累计获得只增)及 C3(悬赏预冻结/退款)三者**数学上不能同时成立**。产品负责人裁决采用:**`累计获得 − 已消费 = 当前可用`**,并把冻结定义为"当前可用中被预留的子集"(F5、F6、数据模型、术语表、7.2 对账作业同步修订)。同时确认 E8 冲正是"累计获得"唯一允许下降的情形,另设只增的 `earnedTotal` 供徽章与报告使用 | 用户裁决 |
+| **v1.3** | 本轮讨论 | 冻结的完整生命周期写清:发布预留(不动可用)→ 过期释放 → 完成时"预留解除 + 余额支付"给执行人(计入已消费);唯一实现为 `apps/api/src/points/ledger.ts` | 补充 |
 
 ---
 

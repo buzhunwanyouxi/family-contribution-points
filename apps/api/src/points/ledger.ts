@@ -3,65 +3,59 @@
  *
  * Four numbers, three of which are always shown together (F2):
  *
- *   累计获得 earned    - cumulative earned, only ever grows; the "honour" figure (F4)
- *   当前可用 available  - everything that is not currently held; the balance column (F5)
- *   已消费 spent       - money that actually left the member: redeems + wish contributions
- *   冻结中 frozen      - held for your own open bounties (C3: held up front, refunded on expiry)
+ *   累计获得 earned    - points awarded for completed tasks. Never decreases (F4).
+ *   当前可用 available  - earned - spent. The stored `Membership.points` column (F5).
+ *   已消费 spent       - points that left the member for good: redeems + wish contributions.
+ *   冻结中 frozen      - a RESERVED SUBSET of `available`, not an extra pot (C3).
  *
  * ---------------------------------------------------------------------------------------------
- * SEMANTICS (lane C, 2026-10-10 -- chosen as the only self-consistent reading of the guide)
+ * THE IDENTITY (F6, wording agreed by the product owner on 2026-10-10):
  *
- *   累计获得 earned    = every earning row ever written. Only grows. (F4)
- *   当前可用 available  = earned - spent. The stored `Membership.points` column. (F5)
- *   已消费 spent       = redeems + wish contributions + reversals.
- *   冻结中 frozen      = a RESERVED SUBSET of `available`, not an extra pot. (C3)
+ *   earned - spent === available          <- what the three numbers must satisfy
+ *   available - frozen = spendable        <- F7: 可用余额 = 当前可用 − 冻结中
  *
- *   identity (F6):  earned - spent === available      <- true by construction, so the daily
- *                                                       reconcile job (J7) can actually fail loudly
- *   spendable now :  available - frozen               <- "余额 = 可用 − 冻结" from F7
+ * WHY THIS READING AND NOT THE OTHER ONE: the guide originally wrote the identity as
+ * `earned - spent - frozen === available`. That cannot coexist with bounty reservations (C3):
+ *   - reserving would have to deduct from `available`, so 冻结 could never exceed 可用;
+ *   - refunding an expired bounty would then have to credit `available` from nowhere, which
+ *     forces 累计获得 down -- contradicting F4 (only grows) and F1 (append only).
+ * The owner chose this reading; see docs/ai-logs/ops/2026-10-10-2100_W1-C_media-web.md and
+ * PROJECT_GUIDE F6. Do not "fix" it locally in another module.
+ * ---------------------------------------------------------------------------------------------
  *
  * Holds move money BETWEEN available and frozen, never out of the member:
  *   publish a bounty : frozen += X                    (delta 0)
  *   bounty expires   : frozen -= X                    (delta 0)
  *   bounty gets done : frozen -= X, available -= X    (delta -X; the reward lands with the worker)
  *
- * !! OPEN QUESTION FOR THE HUMANS (see docs/ai-logs/ops/...-W1-C_media-web.md) !!
- * The guide states the identity as `累计获得 − 已消费 − 冻结 = 可用`, which contradicts F7's
- * "可用余额 = 当前可用 − 冻结中". Both cannot hold. This module implements the second one
- * (frozen as a subset) because it is the only reading under which the identity is non-trivial
- * and the ledger stays consistent. If the humans decide otherwise, this file is the only place
- * that changes -- do NOT patch it locally in another module.
- * ---------------------------------------------------------------------------------------------
- *
- * Pure functions only: no database, no clock, no side effects, so the API, the daily
- * reconciliation job and the frontend can all share ONE implementation.
+ * Pure functions: no database, no clock, no side effects.
  */
 import type { PointsReason, PointsSnapshot } from '@fcp/shared';
 
 export interface LedgerEntry {
-  /** change of the member's available (non-held) points */
+  /** change of the member's available (non-held) balance */
   delta: number;
   /** true only for earning rows (task rewards). Never true for spending rows. */
   earned: boolean;
   reason: PointsReason;
   /**
-   * Change of the held amount in the same transaction:
-   *   bounty_hold   -> +amount (available -> frozen)
-   *   bounty_refund -> -amount (frozen -> available, so delta is also +amount)
-   *   bounty payout -> -amount (the hold leaves the publisher for the worker)
+   * Change of the reserved amount in the SAME transaction:
+   *   bounty_hold   -> +X (available -> frozen)
+   *   bounty_refund -> -X (frozen -> available)
+   *   bounty_payout -> -X (the reservation leaves the member together with delta = -X)
    * Defaults to 0.
    */
   frozenDelta?: number;
 }
 
-/** Reasons that only move money into or out of the hold; they are neither earning nor spending. */
-export const HOLD_REASONS: PointsReason[] = ['bounty_hold', 'bounty_refund', 'bounty_payout'];
-
 /**
- * Reasons that must never be flagged as earned.
- * NOTE: `bounty_refund` is deliberately NOT here -- releasing a hold returns money to the
- * spendable balance, so its delta is positive. It is still not "earning" (earned stays false).
+ * Reasons that only move money in or out of the reservation without it ever leaving the member.
+ * `bounty_payout` is deliberately NOT here: when a bounty is completed the reserved points DO
+ * leave the publisher, so they count as spending -- that is what keeps F6 true.
  */
+export const HOLD_REASONS: PointsReason[] = ['bounty_hold', 'bounty_refund'];
+
+/** Reasons that must never be flagged as earned. */
 export const NOT_EARNABLE_REASONS: PointsReason[] = [
   'bounty_hold',
   'bounty_payout',
@@ -76,12 +70,12 @@ export function roundPoints(value: number): number {
 
 /**
  * Recompute the four numbers from the ledger alone.
- *
  * This is the authority: the cached columns on Membership must always equal this (F1),
- * which is exactly what the daily reconcilePoints job (J7) verifies.
+ * which is what the daily reconcilePoints job (J7) verifies.
  */
 export function computeSnapshot(entries: LedgerEntry[], initialFrozen = 0): PointsSnapshot {
   let earned = 0;
+  let earnedTotal = 0;
   let available = 0;
   let spent = 0;
   let frozen = roundPoints(initialFrozen);
@@ -95,18 +89,19 @@ export function computeSnapshot(entries: LedgerEntry[], initialFrozen = 0): Poin
 
     if (delta > 0 && e.earned) {
       earned = roundPoints(earned + delta);
+      earnedTotal = roundPoints(earnedTotal + delta);
     }
-    // Spending = money that left the member for good. Moving it into the hold does not.
-    if (delta < 0 && !HOLD_REASONS.includes(e.reason)) {
-      spent = roundPoints(spent + Math.abs(delta));
+    // A reversal undoes an award: honour points disappear with the money, but it is not spending.
+    if (delta < 0 && e.reason === 'reverse') {
+      earned = roundPoints(earned + delta);
     }
-    // A bounty payout takes the money out of the member AND out of the hold at the same time.
-    if (e.reason === 'bounty_payout' && delta < 0) {
+    // Spending = money that left the member for good. Reserving it is not spending.
+    if (delta < 0 && !HOLD_REASONS.includes(e.reason) && e.reason !== 'reverse') {
       spent = roundPoints(spent + Math.abs(delta));
     }
   }
 
-  return { earned, available, spent, frozen };
+  return { earned, available, spent, frozen, earnedTotal };
 }
 
 /** F6 identity check: earned - spent - available. 0 means healthy. */
@@ -133,11 +128,10 @@ export interface ApplyResult {
 /**
  * Append one ledger row and refresh the numbers.
  *
- * Guards encoded here (each one has bitten a similar product before):
- *   - F7: no overdraft -- checked before writing
- *   - F7: held points are not spendable twice
- *   - F4: earned only increases; reversing an award lowers 已消费, never 累计获得
- *   - a negative row can never be flagged `earned`
+ * Guards (each one has bitten a similar product before):
+ *   - F7: no overdraft, the reservation stays covered by the balance
+ *   - F4: earned only grows, except through `reverse` (which is still checked for sanity)
+ *   - F6: the identity must hold after every single row, or the row never reaches the database
  */
 export function applyEntry(entries: LedgerEntry[], entry: LedgerEntry, initialFrozen = 0): ApplyResult {
   const delta = roundPoints(entry.delta);
@@ -153,50 +147,59 @@ export function applyEntry(entries: LedgerEntry[], entry: LedgerEntry, initialFr
   if (delta < 0 && entry.reason === 'task_done') {
     throw new LedgerError('task rewards must be positive (a reversal uses reason=reverse)');
   }
-  if (delta < 0 && entry.earned) {
-    throw new LedgerError('a negative row can never be flagged as earned');
-  }
-  if (before.frozen + frozenDelta < 0) {
+  if (delta < 0 && entry.earned && entry.reason !== 'reverse') {
     throw new LedgerError(
-      `frozen amount cannot go negative (was ${before.frozen}, delta ${frozenDelta})`,
+      `a negative row can only decrease earned via reason=reverse (got ${entry.reason})`,
     );
   }
 
   const availableAfter = roundPoints(before.available + delta);
+  const frozenAfter = roundPoints(before.frozen + frozenDelta);
+
   if (availableAfter < 0) {
     throw new LedgerError(
       `insufficient balance: available ${before.available}, attempted delta ${delta} (F7: no overdraft)`,
     );
   }
-  // F7: the reserved part must stay covered by the balance, and can never exceed it.
-  // The two checks are separate on purpose: "cannot spend" (the member has no money) and
-  // "cannot hold" (the member has money but wants to reserve more than exists) are different
-  // situations for the UI, and one row can trip both.
-  const frozenAfter = roundPoints(before.frozen + frozenDelta);
+  if (frozenDelta < 0 && Math.abs(frozenDelta) > before.frozen) {
+    throw new LedgerError(
+      `cannot release ${Math.abs(frozenDelta)} reserved points when only ${before.frozen} are reserved`,
+    );
+  }
   if (frozenAfter < 0) {
     throw new LedgerError(
       `frozen amount cannot go negative (was ${before.frozen}, delta ${frozenDelta})`,
     );
   }
-  if (availableAfter < frozenAfter) {
-    // Distinguish "the member is broke" from "the reservation is bigger than the balance".
-    if (before.available + delta <= before.frozen) {
+  if (frozenAfter > availableAfter) {
+    if (frozenDelta > 0) {
       throw new LedgerError(
-        `insufficient balance: available ${before.available}, frozen ${before.frozen}, ` +
-          `attempted delta ${delta} (F7: reserved points are not spendable)`,
+        `cannot reserve ${frozenAfter} points out of an available balance of ${availableAfter} ` +
+          `(F7: the reservation is a subset of the balance)`,
       );
     }
     throw new LedgerError(
-      `cannot hold ${frozenAfter} points out of an available balance of ${availableAfter} ` +
-        `(F7: the hold is a subset of the balance)`,
+      `insufficient balance: releasing the reservation would need ${Math.abs(delta)} points, ` +
+        `but only ${availableAfter} would be available (F7: no overdraft)`,
     );
   }
 
   const next = [...entries, { ...entry, delta, frozenDelta }];
   const snapshot = computeSnapshot(next, initialFrozen);
 
-  if (snapshot.earned < before.earned) {
-    throw new LedgerError('cumulative earned must never decrease (F4)');
+  if (entry.reason === 'reverse') {
+    if (snapshot.earned < 0) throw new LedgerError('a reversal cannot push earned below zero');
+  } else if (snapshot.earned < before.earned) {
+    throw new LedgerError('cumulative earned must never decrease except through reason=reverse (F4)');
+  }
+
+  // F6 is checked on every write: a row that breaks the books never reaches the database.
+  const drift = checkIdentity(snapshot);
+  if (drift !== 0) {
+    throw new LedgerError(
+      `entry breaks the F6 identity by ${drift} ` +
+        `(earned ${snapshot.earned} - spent ${snapshot.spent} != available ${snapshot.available})`,
+    );
   }
 
   return { entries: next, snapshot };
@@ -214,6 +217,8 @@ export function applyEntries(
   }
   return current;
 }
+
+// ---------------------------------------------------------------- builders
 
 /** C3: reserve bounty points when a temporary task is published. The money stays in the balance. */
 export function buildBountyHold(points: number): LedgerEntry {
@@ -238,13 +243,28 @@ export function buildBountyPayout(points: number): LedgerEntry {
   };
 }
 
+/** The worker side of a completed bounty (same shape as any task award). */
+export function buildBountyEarned(points: number): LedgerEntry {
+  if (points <= 0) throw new LedgerError('award must be positive');
+  return { delta: roundPoints(points), earned: true, reason: 'task_done' };
+}
+
 /**
- * Overwrite re-settlement (E8: the owner scores late and the result is recalculated).
- * The old reward is reversed with its own row instead of editing history (F1: append only).
+ * E8: the owner re-scored a task, so the original award is undone.
+ * The reversal takes the honour points back with the money; `earnedTotal` keeps the history.
  */
 export function buildReversal(previousPoints: number): LedgerEntry {
   if (previousPoints <= 0) throw new LedgerError('nothing to reverse');
-  return { delta: roundPoints(-previousPoints), earned: false, reason: 'reverse' };
+  return { delta: roundPoints(-previousPoints), earned: true, reason: 'reverse' };
+}
+
+/** The corrected award after a re-settlement (E8). */
+export function buildAward(points: number, reason: PointsReason = 'task_done'): LedgerEntry {
+  if (points <= 0) throw new LedgerError('award must be positive');
+  if (!['task_done', 'admin_adjust'].includes(reason)) {
+    throw new LedgerError(`reason ${reason} is not an award reason`);
+  }
+  return { delta: roundPoints(points), earned: reason === 'task_done', reason };
 }
 
 /** H8: the notification must carry the three numbers. */

@@ -33,17 +33,23 @@ export type DisciplineType = 'no_show' | 'abandoned' | 'rejected' | 'damaged';
 
 /**
  * The three numbers the product must always show together (PROJECT_GUIDE F2).
- * Identity that must always hold (F6): earned - spent - frozen === available
+ * Identity that must always hold (F6): earned - spent === available
+ * and, for the reservation:            available - frozen = spendable
  */
 export interface PointsSnapshot {
-  /** 累计获得 / cumulative earned - never decreases */
+  /** 累计获得 / cumulative earned for completed tasks. Never decreases (F4). */
   earned: number;
-  /** 当前可用 / current available - spendable, includes frozen */
+  /** 当前可用 / current available = earned - spent; the balance column (F5) */
   available: number;
   /** 已消费 / spent - redeemed + contributed to wishes */
   spent: number;
-  /** 冻结中 / frozen - held for open bounties */
+  /** 冻结中 / frozen - a reserved SUBSET of `available` held for open bounties (C3) */
   frozen: number;
+  /**
+   * Total ever awarded, ignoring reversals. Monotonic, for badges and reports.
+   * Not one of the three numbers shown on screen.
+   */
+  earnedTotal: number;
 }
 
 export interface ProofMediaRef {

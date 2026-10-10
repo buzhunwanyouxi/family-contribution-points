@@ -36,9 +36,18 @@
 
 ### 前端调用约定(车道 C 冻结,所有人遵守)
 
-> ⚠️ **实现前必读**:积分四项数值的语义以 `apps/api/src/points/ledger.ts` 顶部注释为准。
-> PROJECT_GUIDE 的 F6 公式与 F7 存在口径冲突,已上报(见 ops/W1-C 阻塞项 1)。在人类拍板前,
-> **不要在其他模块另写一套积分口径** —— 那是本轮最容易制造"矛盾代码"的地方。
+> ⚠️ **实现前必读**:积分四项数值的语义以 `apps/api/src/points/ledger.ts` 顶部注释为准(F6 已于 v1.3 裁决)。
+>
+> ```
+> 累计获得 earned   = 赚取类流水 − 冲正流水          (除 E8 冲正外只增)
+> 已消费   spent    = 兑换 + 投入愿望 + 悬赏支付
+> 当前可用 available = earned − spent               ← Membership.points 列
+> 冻结中   frozen   = available 中被预留的子集      ← 悬赏预留/释放,不动 available
+> 当前可花          = available − frozen
+> 恒等式(F6):earned − spent === available
+> ```
+>
+> **不要在其他模块另写一套积分口径。** 前端 `apps/web/src/api/types.ts` 与后端 `ledger.ts` 已按此对齐。
 
 前端**只认上面这张表**。为让前端可以在后端未完成时先跑起来,约定如下:
 

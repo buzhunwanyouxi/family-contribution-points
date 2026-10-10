@@ -22,13 +22,13 @@ export interface FamilySummary {
   id: string;
   name: string;
   role: Role;
-  /** 当前可用 -- the balance, of which `frozenPoints` is reserved (PROJECT_GUIDE F2) */
+  /** 当前可用 = earnedPoints - spentPoints; `frozenPoints` is a reserved subset of it (F2/F6) */
   points: number;
-  /** 累计获得 -- cumulative earned, only grows (F4) */
+  /** 累计获得 -- awarded minus reversals; only E8 reversals can lower it (F4) */
   earnedPoints: number;
-  /** 已消费 -- redeemed + contributed to wishes (F5) */
+  /** 已消费 -- redeemed + contributed to wishes + bounty payouts (F5) */
   spentPoints: number;
-  /** 冻结中 -- reserved for open bounties (C3) */
+  /** 冻结中 -- reserved subset of `points` for this member's open bounties (C3) */
   frozenPoints: number;
 }
 
