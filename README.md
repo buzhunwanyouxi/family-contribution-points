@@ -87,6 +87,7 @@ pnpm test
 | W4 | 愿望众筹、定价、月度报告、微信提醒 | 弟弟开始盯自己的 1000 分 |
 
 详见 [`docs/ROADMAP.md`](docs/ROADMAP.md)。
+**准备开工?先读 [`docs/DAY1-PLAN.md`](docs/DAY1-PLAN.md)** —— 三个人的分工、文件归属表、接口冻结清单、当天完成标准都在里面。
 
 ---
 
