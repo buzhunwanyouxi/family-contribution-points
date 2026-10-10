@@ -4,10 +4,19 @@
  *
  * Every value can be overridden by an environment variable so that the deployed instance can be
  * tuned without a code change, but the defaults below are the agreed rules.
+ *
+ * The `process` lookup is guarded so this module can be imported from the browser bundle too.
  */
 
+type EnvBag = Record<string, string | undefined>;
+
+function readEnv(name: string): string | undefined {
+  const proc = (globalThis as { process?: { env?: EnvBag } }).process;
+  return proc?.env?.[name];
+}
+
 function envInt(name: string, fallback: number): number {
-  const raw = typeof process !== 'undefined' ? process.env?.[name] : undefined;
+  const raw = readEnv(name);
   const parsed = raw === undefined ? NaN : Number(raw);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
@@ -28,10 +37,10 @@ export const SCORE_FALLBACK_PERCENT = envInt('SCORE_FALLBACK_PERCENT', 60);
 export const PROOF_TTL_HOURS = envInt('PROOF_TTL_HOURS', 72);
 
 /** 4.10 / D9 - reminders fire when this many hours remain (descending) */
-export const PROOF_REMIND_BEFORE_HOURS: number[] = (process.env?.['PROOF_REMIND_BEFORE_HOURS'] ?? '24,6')
+export const PROOF_REMIND_BEFORE_HOURS: number[] = (readEnv('PROOF_REMIND_BEFORE_HOURS') ?? '24,6')
   .split(',')
-  .map((v) => Number(v.trim()))
-  .filter((v) => Number.isFinite(v) && v > 0);
+  .map((v: string) => Number(v.trim()))
+  .filter((v: number) => Number.isFinite(v) && v > 0);
 
 /** 4.3 C3 - temporary task quotas, anti-abuse */
 export const TEMP_TASK_DAILY_LIMIT = envInt('TEMP_TASK_DAILY_LIMIT', 3);
@@ -47,5 +56,5 @@ export const DISCIPLINE_COOLDOWN_DAYS = envInt('DISCIPLINE_COOLDOWN_DAYS', 7);
 /** 4.5 E12 - how long a settlement can be appealed */
 export const APPEAL_WINDOW_HOURS = envInt('APPEAL_WINDOW_HOURS', 24);
 
-/** 4.5 E11 - the UI copy is fixed by the user, do not reword it casually */
-export const SCORE_PROMPT = '鎮ㄨ涓烘娆′换鍔″畬鎴愭儏鍐靛浣?;
+/** 4.5 E1 - the UI copy is fixed by the user, do not reword it casually */
+export const SCORE_PROMPT = '您认为此次任务完成情况如何';

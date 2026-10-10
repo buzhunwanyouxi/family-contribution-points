@@ -2,38 +2,46 @@
 
 export type Role = 'owner' | 'admin' | 'member' | 'child';
 
+/**
+ * TaskInstance.status -- the state machine flows one way (PROJECT_GUIDE 7.1).
+ * Persisted identifiers are ASCII; Chinese labels live in the UI dictionary.
+ */
 export type InstanceStatus =
-  | '寰呮帴鍙?
-  | '宸叉帴鍙?
-  | '杩涜涓?
-  | '寰呰瘎鍒?
-  | '宸插畬鎴?
-  | '宸查┏鍥?
-  | '宸叉斁寮?;
+  | 'open'
+  | 'claimed'
+  | 'doing'
+  | 'pending_score'
+  | 'done'
+  | 'rejected'
+  | 'abandoned';
 
 export type SettledBy = 'owner' | 'others_avg' | 'fallback_60';
 
 export type PointsReason =
-  | '浠诲姟瀹屾垚'
-  | '鎮祻鏀嚭'
-  | '鎮祻閫€鍥?
-  | '鎰挎湜鎶曞叆'
-  | '鍏戞崲'
-  | '鍐叉'
-  | '绠＄悊鍛樿皟鏁?;
+  | 'task_done'
+  | 'bounty_hold'
+  | 'bounty_refund'
+  | 'wish_contribute'
+  | 'redeem'
+  | 'reverse'
+  | 'admin_adjust';
+
+export type ProofMediaStatus = 'valid' | 'expired';
+
+export type DisciplineType = 'no_show' | 'abandoned' | 'rejected' | 'damaged';
 
 /**
  * The three numbers the product must always show together (PROJECT_GUIDE F2).
  * Identity that must always hold (F6): earned - spent - frozen === available
  */
 export interface PointsSnapshot {
-  /** 绱鑾峰緱 - cumulative earned, never decreases */
+  /** 累计获得 / cumulative earned - never decreases */
   earned: number;
-  /** 褰撳墠鍙敤 - spendable balance including frozen */
+  /** 当前可用 / current available - spendable, includes frozen */
   available: number;
-  /** 宸叉秷璐?- redeemed + contributed to wishes */
+  /** 已消费 / spent - redeemed + contributed to wishes */
   spent: number;
-  /** 鍐荤粨涓?- held for open bounties */
+  /** 冻结中 / frozen - held for open bounties */
   frozen: number;
 }
 
@@ -44,5 +52,23 @@ export interface ProofMediaRef {
   thumbUrl?: string;
   /** when the file disappears (upload time + PROOF_TTL_HOURS) */
   expireAt: string;
-  status: '鏈夋晥' | '宸茶繃鏈?;
+  status: ProofMediaStatus;
 }
+
+/** A score submitted by one family member for one instance (0-100). */
+export interface ScoreRef {
+  scorerId: string;
+  isOwner: boolean;
+  percent: number;
+}
+
+/** UI labels for the persisted status codes. Keep Chinese out of the database. */
+export const INSTANCE_STATUS_LABEL: Record<InstanceStatus, string> = {
+  open: '待接取',
+  claimed: '已接取',
+  doing: '进行中',
+  pending_score: '待评分',
+  done: '已完成',
+  rejected: '已驳回',
+  abandoned: '已放弃',
+};

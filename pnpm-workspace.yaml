@@ -1,3 +1,13 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# pnpm 12 reads these settings from this file (the "pnpm" field in package.json is ignored).
+# These dependencies are allowed to run install scripts: prisma needs to fetch its engines,
+# esbuild needs to drop its native binary. Extending this list is a supply-chain decision --
+# discuss it in an issue first.
+allowBuilds:
+  "@prisma/client": true
+  "@prisma/engines": true
+  esbuild: true
+  prisma: true

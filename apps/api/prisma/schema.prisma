@@ -1,6 +1,9 @@
 // Data model -- PROJECT_GUIDE section 7.
 // Dev uses sqlite for zero-setup; production switches to postgresql (same schema).
 // SHARED FILE: announce changes in your ops log and update docs/CONTRACTS.md.
+//
+// Enum-like string columns use ASCII codes (not Chinese) on purpose: they are persisted
+// identifiers. Chinese belongs in the UI layer, never in the database. See docs/DECISIONS.md.
 
 generator client {
   provider = "prisma-client-js"
@@ -25,13 +28,13 @@ model User {
 }
 
 model Family {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
   ownerId        String
-  inviteCode     String   @unique
+  inviteCode     String    @unique
   inviteExpireAt DateTime?
-  timezone       String   @default("Asia/Shanghai")
-  createdAt      DateTime @default(now())
+  timezone       String    @default("Asia/Shanghai")
+  createdAt      DateTime  @default(now())
 
   memberships Membership[]
   templates   TaskTemplate[]
@@ -83,7 +86,7 @@ model TaskInstance {
   title        String
   maxPoints    Float
   deadlineAt   DateTime
-  status       String    @default("寰呮帴鍙?)
+  status       String    @default("open") // open|claimed|doing|pending_score|done|rejected|abandoned
   claimerId    String?
   claimedAt    DateTime?
   autoAssigned Boolean   @default(false)
@@ -95,6 +98,8 @@ model TaskInstance {
 
   family Family       @relation(fields: [familyId], references: [id])
   proof  ProofMedia[]
+
+  @@index([familyId, date])
 }
 
 model ProofMedia {
@@ -108,7 +113,8 @@ model ProofMedia {
   durationSec Int?
   sizeBytes   Int?
   expireAt    DateTime // = uploadedAt + PROOF_TTL_HOURS (default 72h)
-  status      String    @default("鏈夋晥") // 鏈夋晥 | 宸茶繃鏈?  deletedAt   DateTime?
+  status      String    @default("valid") // valid | expired
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
 
   instance TaskInstance? @relation(fields: [refId], references: [id])
@@ -134,28 +140,32 @@ model PointsTxn {
   userId       String
   familyId     String
   delta        Float
-  reason       String // 浠诲姟瀹屾垚 | 鎮祻鏀嚭 | 鎮祻閫€鍥?| 鎰挎湜鎶曞叆 | 鍏戞崲 | 鍐叉 | 绠＄悊鍛樿皟鏁?  earned       Boolean  @default(false)
+  reason       String // task_done|bounty_hold|bounty_refund|wish_contribute|redeem|reverse|admin_adjust
+  earned       Boolean  @default(false)
   refType      String?
   refId        String?
   balanceAfter Float
   operatorId   String?
   createdAt    DateTime @default(now())
+
+  @@index([userId, familyId])
 }
 
 model Wish {
-  id                 String    @id @default(cuid())
-  familyId           String
-  title              String
-  imageUrl           String?
-  description        String?
-  targetPoints       Float
-  contributedPoints  Float     @default(0)
-  status             String    @default("寰呭畾浠?) // 寰呭畾浠?| 鏀掑垎涓?| 宸茶揪鎴?| 宸插厬鐜?| 宸蹭笅鏋?  createdBy          String
-  pricedBy           String?
-  pricedAt           DateTime?
-  redeemedAt         DateTime?
-  redeemedBy         String?
-  createdAt          DateTime  @default(now())
+  id                String    @id @default(cuid())
+  familyId          String
+  title             String
+  imageUrl          String?
+  description       String?
+  targetPoints      Float
+  contributedPoints Float     @default(0)
+  status            String    @default("draft") // draft|saving|reached|redeemed|removed
+  createdBy         String
+  pricedBy          String?
+  pricedAt          DateTime?
+  redeemedAt        DateTime?
+  redeemedBy        String?
+  createdAt         DateTime  @default(now())
 
   family        Family             @relation(fields: [familyId], references: [id])
   contributions WishContribution[]
@@ -175,9 +185,11 @@ model Discipline {
   id        String   @id @default(cuid())
   userId    String
   familyId  String
-  type      String // 鏈饱绾?| 寮冨崟 | 琚┏鍥?| 鐮存崯
+  type      String // no_show | abandoned | rejected | damaged
   refType   String?
   refId     String?
   note      String?
   createdAt DateTime @default(now())
+
+  @@index([userId, familyId])
 }
