@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# env & secrets -- NEVER commit real credentials
+.env
+.env.*
+!.env.example
+
+# local database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# uploads (proof media lives in object storage, never in git)
+uploads/
+tmp/
+
+# editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# logs
+*.log
+npm-debug.log*
