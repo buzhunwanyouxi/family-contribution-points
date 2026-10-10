@@ -88,7 +88,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     } catch {
       /* non-json error body */
     }
-    throw new ApiError(parsed?.error ?? `请求失败(${response.status})`, response.status, parsed);
+    // Prefer the human-readable `message` when the backend sends one (lane A added it as an
+    // additive field on top of the frozen `{error, details?}` shape). Without this the parent
+    // would see a machine code like `user_exists` on screen.
+    const text = parsed?.message ?? parsed?.error ?? `请求失败(${response.status})`;
+    throw new ApiError(text, response.status, parsed);
   }
 
   if (response.status === 204) return undefined as T;

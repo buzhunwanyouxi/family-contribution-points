@@ -87,7 +87,7 @@ interface AuthResult   { token: string; user: UserSummary; families: FamilySumma
 |---|---|---|---|---|
 | T1 | `User` | 已定稿 | 项目初始化 | `phone`/`email` 唯一 |
 | T2 | `Family` | 已定稿 | 项目初始化 | `inviteCode` 唯一、可设有效期 |
-| T3 | `Membership` | 已定稿 | 项目初始化 | `(userId,familyId)` 唯一;恒等式 `earnedPoints − spentPoints − frozenPoints = points`(**F5/F6**) |
+| T3 | `Membership` | 已定稿 | 车道 C(依据 F6 v1.3 裁决) | `(userId,familyId)` 唯一;恒等式 **`earnedPoints − spentPoints = points`**(F6 v1.3),且 **`frozenPoints` 是 `points` 的保留子集**(`0 ≤ frozenPoints ≤ points`)。唯一实现:`apps/api/src/points/ledger.ts`。原注释 `earnedPoints − spentPoints − frozenPoints = points` 已于 v1.3 废止 |
 | T4 | `TaskTemplate` | 已定稿 | 项目初始化 | **写权限仅 family.owner**(B1,API 层强校验) |
 | T5 | `TaskInstance` | 已定稿 | 项目初始化 | 状态机单向流转;`settledBy ∈ owner/others_avg/fallback_60` |
 | T6 | `ProofMedia` | 已定稿 | 项目初始化 | **`expireAt` 上传即写死 = uploadedAt + PROOF_TTL_HOURS**;索引 `(expireAt,status)` |

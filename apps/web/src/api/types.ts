@@ -57,7 +57,13 @@ export interface MeResult {
 }
 
 export interface ErrorBody {
+  /** stable machine code, e.g. `user_exists` / `invalid_credentials` / `validation_error` */
   error: string;
+  /**
+   * Optional human-readable text (lane A sends Chinese). Additive on top of the frozen
+   * `{error, details?}` shape -- always fall back to `error` when it is absent.
+   */
+  message?: string;
   details?: unknown;
 }
 
