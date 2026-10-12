@@ -28,6 +28,7 @@
 | 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
 | 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
 | 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(待实现)** | 车道 C | 2026-10-10 |
+| 10b | GET | `/api/families/:fid/invite` | header: Bearer(须为 owner/admin) | `{inviteCode, inviteExpireAt, qrPayload}` | **待认领**(前端 P12 需要,尚未实现) | 车道 C 登记 | 2026-10-12 |
 | 11 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
 | 12 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
 | 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
@@ -73,6 +74,26 @@ interface AuthResult   { token: string; user: UserSummary; families: FamilySumma
 5. **`families` 数组**:登录/注册/`me` 三个接口都返回它,前端据此渲染家庭切换器;**没有家庭时返回空数组,不要报错**。
 6. **积分三数**:`FamilySummary` 里的 `points / earnedPoints / spentPoints / frozenPoints` 必须同时返回,
    前端首页要显示三个数字(F2),缺字段视为接口未完成。
+
+### 邀请码规范(车道 B 定的默认值,2026-10-12 正式登记进契约)
+
+指导文档 A2 只写了"带有效期",没有写死数字。车道 B 实现时照已上线的前端界面倒推了默认值,
+**经发起人确认后正式写入契约**,后续实现一律以此为准:
+
+| 项 | 值 |
+|---|---|
+| 长度 / 字符表 | **6 位**,字符集 `23456789ABCDEFGHJKLMNPQRSTUVWXYZ`(32 字符,**剔除易混的 `0/1/O/I`**) |
+| 有效期 | **7 天**,环境变量 `FAMILY_INVITE_TTL_DAYS` 可覆盖 |
+| 大小写 | 输入时统一转大写后再匹配 |
+| 错误码 | 邀请码不存在**或格式非法** → `404 invalid_invite_code`(**同一个码,防止探测某码是否存在**);已过期 → `400 invite_expired` |
+| `join` 幂等 | 重复加入返回 **200** + 既有 `{family, membership}`,**不报 409** |
+| `nickname` 语义 | 传了 `nickname` 会更新 `User.nickname`(表在 `User`,**是全账号改名**,不只对本家庭);今日前端不发送该字段 |
+| 家庭名长度 | trim 后 **1–20 个码点**(不是 UTF-16 单元) |
+| 时区 | 默认 `Asia/Shanghai`,非法 IANA 名 → `400` |
+| 非成员 / 家庭不存在 | **统一回 `403 not_a_member`**,避免用 `:fid` 探测家庭是否存在 |
+
+> ⚠️ **邀请码展示接口尚未实现**:前端 P12 需要 `GET /api/families/:fid/invite`(见上表 #10b),
+> 当前**不在任何人的模块里**。要做的先认领 #10b,不要顺手在别处加接口。
 
 **约定**
 

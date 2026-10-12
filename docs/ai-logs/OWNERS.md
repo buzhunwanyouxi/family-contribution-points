@@ -39,6 +39,25 @@
 
 ---
 
+## 子模块拆分建议(2026-10-12 新增,依据一次真实冲突事故)
+
+> **为什么要拆到这么细**:实测发现,两位协作者各自"按模块"认领、都守规矩,合并时仍在 4 个文件上冲突。
+> 「模块」这个粒度太粗 —— **同一模块的不同层被两个人先后改到,一样会撞**。
+> 认领时请填到**子模块**这一级,规则见 `docs/PROJECT_GUIDE.md` 14.5「规则 0」。
+
+| 模块 | 可单独认领的子模块 |
+|---|---|
+| `auth` | `app`(路由装配与类型)· `service` · `password` · `jwt` · `middleware` · `repository`(内存) · `repository.prisma` · `errors` · `tests` |
+| `family` | `app` · `service` · `invite` · `directory` · `repository` · `repository.prisma` · `errors` · `tests` |
+| `media-proof` | `expiry`(纯逻辑,已完成)· `upload`(HTTP)· `storage` · `cron`(J4 过期清理 / J5 到期提醒)· `tests` |
+| `points` | `ledger`(纯逻辑,已完成)· `prisma`(落库)· `routes` · `reconcile`(J7 对账)· `tests` |
+| `web-app` | `client`(API 客户端)· `pages/*` · `components/*` · `router/session` · `styles` |
+
+**判定标准**:一个子模块若文件数 > 5,或改动会同时跨两层(如既改 HTTP 又改数据库),就继续拆 ——
+**拆到"一个人半天能做完"为止。**
+
+---
+
 ## 认领模板(复制到对应行)
 
 ```markdown

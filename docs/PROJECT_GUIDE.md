@@ -838,7 +838,26 @@ W3-05 处理驳回重做 + 证据 72 小时过期定时任务。
 - 证据到期但还没结算时,是否强制先结算?(我按"先结算再删除"实现了,请确认)
 ```
 
-### 14.5 防冲突机制(三条具体规则)
+### 14.5 防冲突机制(实测修订版,2026-10-12)
+
+> ⚠️ **本节依据一次真实事故修订**:车道 A(PR #1)与车道 B(PR #2)各自**完全守规矩**地
+> 按冻结契约完成实现,但把两个 PR **同时合并**时,仍在 **4 个文件**上产生了冲突:
+> `apps/api/src/routes/index.ts`、`docs/CONTRACTS.md`、`docs/ai-logs/INDEX.md`、`docs/ai-logs/OWNERS.md`。
+> 结论:**冲突不是纪律问题,而是并行开发的必然结果**;纪律的作用是把冲突从"两小时解冲突"压到"十分钟看懂"。
+
+**新规则 0:先分片,再并行(2026-10-12 新增)**
+"模块"这个粒度**太大**,会导致两个人先后改同一个模块目录。认领时按**子模块**(实现文件)粒度认领:
+
+| 模块 | 子模块(可分别认领) |
+|---|---|
+| `auth` | `app`(路由装配+类型) · `service`(用例) · `password` · `jwt` · `middleware` · `repository`(内存) · `repository.prisma` · `errors` · `tests` |
+| `family` | `app` · `service` · `invite` · `directory` · `repository` · `repository.prisma` · `errors` · `tests` |
+| `media-proof` | `expiry`(纯逻辑) · `upload`(HTTP) · `storage` · `cron`(J4/J5) · `tests` |
+| `points` | `ledger`(纯逻辑) · `prisma`(落库) · `routes` · `reconcile`(J7) · `tests` |
+| `web-app` | `client`(API 客户端) · `pages/*` · `components/*` · `router/session` · `styles` |
+
+**规则 0 的判定标准**:如果一个子模块的文件数 > 5 或改动会跨两个"层"(如同时改 HTTP 与数据库),
+它就该继续拆 —— **拆到"一个人半天能做完"为止**。
 
 **规则 1:模块认领表 `docs/ai-logs/OWNERS.md`**
 每个模块一行,状态只有三种:`空闲 / 进行中 / 已完成`。
@@ -857,6 +876,11 @@ W3-05 处理驳回重做 + 证据 72 小时过期定时任务。
 **规则 2:共享文件清单(必须串行修改,改前先看日志)**
 以下文件是多方共用的,改动前先在日志里声明,改完必须立刻更新契约:
 `packages/shared/src/types/**` · `apps/api/prisma/schema.prisma`(及 migrations) · `apps/api/src/routes/index.ts`(路由注册) · `packages/shared/src/constants.ts`(积分/百分比/时限常量) · `docs/CONTRACTS.md` · `package.json` / `pnpm-lock.yaml`。
+
+**规则 2 补充(实测)**:除上面列出的技术性共享文件外,**`docs/ai-logs/INDEX.md` 与 `docs/ai-logs/OWNERS.md` 也是冲突高发区**
+(每个车道都会追加自己的日志行 / 更新自己的模块状态)。这两个文件按**追加行**处理,冲突时
+**保留双方的行**即可,不要二选一。**合并顺序建议:先合一个 PR,第二个作者 rebase 后再合**,
+并且**共享文件一律不要在同一个 PR 里顺手"整理格式"**(格式改动会把冲突放大到整文件)。
 
 **规则 3:接口契约总表 `docs/CONTRACTS.md`**
 一行一个接口/数据表,AI 写代码前先查这里,写完必须回来更新:
