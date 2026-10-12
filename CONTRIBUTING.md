@@ -44,6 +44,30 @@ docs(guide): clarify points summary identity (F5)
 
 Never commit directly to `main`. Never force-push a shared branch.
 
+> **例外**:你自己的功能分支在 **rebase 之后**必须用
+> `git push --force-with-lease origin <你的分支>` 推送 —— 这是唯一允许的强推场景,
+> 而且**只能推你自己的分支**。`--force-with-lease` 会在别人也推过这个分支时失败,这是保护。
+
+## 3.5 解冲突:rebase 期间的 `--ours` / `--theirs` 是**反的**(实测陷阱)
+
+这是本项目踩过的坑,务必记住:
+
+| 场景 | `--ours` 指谁 | `--theirs` 指谁 |
+|---|---|---|
+| **`git merge`**(把别人合进你) | 你当前的分支 | 被合并进来的分支 |
+| **`git rebase`**(把你的提交搬到上游之上) | ⚠️ **上游(通常是 `main`)** | ⚠️ **你自己的分支** |
+
+原因是 rebase 会先把 HEAD 切到上游、再逐个重放你的提交,所以"我这边"变成了上游。
+
+**因此在 rebase 冲突里**:
+
+- 想保留 **`main` 的版本** → `git checkout --ours <文件>`
+- 想保留 **你分支的版本** → `git checkout --theirs <文件>`
+- 想**两边都要** → 手动编辑,删掉 `<<<<<<<` / `=======` / `>>>>>>>` 三行标记,**两组内容都留下**
+
+> 不确定时**别猜**:用 `git show :2:<文件>`(ours)与 `git show :3:<文件>`(theirs)
+> 各看一眼,再决定。这四个字符的差别,足以让你**悄悄丢掉别人的改动**。
+
 ## 4. Pull requests
 
 Every PR description must contain:
