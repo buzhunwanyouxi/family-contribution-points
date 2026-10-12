@@ -20,9 +20,9 @@
 |---|---|---|---|---|---|---|---|
 | 1 | GET | `/health` | — | `{ok, service, time}` | 已定稿 | 项目初始化 | 2026-10-10 |
 | 2 | POST | `/api/scoring/preview` | `{maxPoints, scores:[{scorerId,isOwner,percent}]}` | `{percent, points, settledBy, provisional, rawPercent, otherScorers}` | 已定稿 | 项目初始化 | 2026-10-10 |
-| 3 | POST | `/api/auth/register` | `{account, password, nickname}` | `{token, user, families}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
-| 4 | POST | `/api/auth/login` | `{account, password}` | `{token, user, families}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
-| 5 | GET | `/api/auth/me` | header: Bearer | `{user, families}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 3 | POST | `/api/auth/register` | `{account, password, nickname}` | `{token, user, families}` | **已定稿(已实现)** | 车道 C 冻结 / 车道 A 实现 | 2026-10-10 |
+| 4 | POST | `/api/auth/login` | `{account, password}` | `{token, user, families}` | **已定稿(已实现)** | 车道 C 冻结 / 车道 A 实现 | 2026-10-10 |
+| 5 | GET | `/api/auth/me` | header: Bearer | `{user, families}` | **已定稿(已实现)** | 车道 C 冻结 / 车道 A 实现 | 2026-10-10 |
 | 6 | POST | `/api/families` | `{name, timezone?}` | `{family, membership}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
 | 7 | POST | `/api/families/join` | `{inviteCode, nickname?}` | `{family, membership}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
 | 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
@@ -95,6 +95,48 @@ interface AuthResult   { token: string; user: UserSummary; families: FamilySumma
 > ⚠️ **邀请码展示接口尚未实现**:前端 P12 需要 `GET /api/families/:fid/invite`(见上表 #10b),
 > 当前**不在任何人的模块里**。要做的先认领 #10b,不要顺手在别处加接口。
 
+### auth 模块交付说明(#3-#5 已实现,车道 A)
+
+实现落点:`apps/api/src/auth/**`(23 个文件,91 个用例)+ `apps/api/src/routes/auth.ts`。
+三条接口的**成功响应严格等于上表形状**,不额外返回 `expiresAt` / `expiresIn`。
+
+**错误响应**:按本文件「前端调用约定」第 4 条 —— 该条已由车道 C 在 `94cc7e1` 正式冻结为
+`{error, message?, details?}`,`message` 是**可选增量字段**,不得改动或移除既有字段。
+
+```jsonc
+{ "error": "user_exists",           // 稳定机器码:validation_error | user_exists | invalid_credentials | unauthorized
+  "message": "该手机号或邮箱已注册",   // 中文文案,给 UI 直接显示
+  "details": [ /* 仅 validation_error 时存在 */ ] }
+```
+
+- 车道 A 是第一个使用 `message` 的模块;**车道 C 已在 `de78d82` 把前端 `client.ts` 改为
+  `message ?? error` 渲染,因此无需任何后续改动**。
+
+**跨模块联动接口(车道 B / C 直接复用,不要重复实现)**
+
+```ts
+// 保护你模块的接口(认证中间件已在根实例上装好)
+app.get('/api/families/:fid/members', { preHandler: app.requireAuth }, async (request) => {
+  const me = currentUserId(request);            // 已验签的 userId
+  const payload = currentTokenPayload(request); // 需要 exp 时用
+});
+// import { currentUserId, currentTokenPayload } from '../auth/index.js';
+```
+
+| 导出 | 说明 |
+|---|---|
+| `app.auth` | `AuthService {register, login, me, verifyToken}` |
+| `app.requireAuth` | preHandler;失败自行回 401(JSON + 中文 message)且**不抛异常** |
+| `FamilyDirectoryPort` | **车道 B 需要实现的唯一端口**:`listFamilies(userId) => Promise<FamilySummary[]>` |
+| `createPrismaAuthRepository(client)` | 数据库接线点;结构化类型,**不 import `@prisma/client`** |
+
+- **车道 B 的交接动作**:实现 `FamilyDirectoryPort` 一个对象,再由 `routes/index.ts` 传入
+  `registerAuth(app, { familyDirectory })`。**未接线时 `families` 恒为 `[]`**(契约规则 5),不会 500。
+- **auth 绝不计算积分**:`families` 里的四项数值由车道 B 提供、auth 原样转发。
+  唯一口径实现是 `apps/api/src/points/ledger.ts`(F5/F6 v1.3)。
+- **`fastify` 的模块增强由 `apps/api/src/auth/types.ts` 独占**(`app.auth` / `app.requireAuth` /
+  `request.authUser`),其他模块不要重复声明。
+
 **约定**
 
 - 认证:`Authorization: Bearer <jwt>`;所有 `/api/families/:fid/**` 必须校验调用者属于 `:fid`,**跨家庭访问一律 403**。
@@ -152,3 +194,20 @@ apps/api/src/routes/index.ts
 docs/CONTRACTS.md
 package.json, pnpm-lock.yaml
 ```
+
+> **本轮共享文件改动声明(车道 A,W1-01,2026-10-10 22:50)**
+> - `apps/api/src/routes/index.ts` —— 新增 1 行 `await registerAuth(app);`,并为车道 B / C 留下
+>   注释形式的注册位(其文件尚不存在,现在写进去会让 `pnpm -r typecheck` 在 `main` 上失败)。
+> - `docs/CONTRACTS.md`(本文件)—— 更新 #3-#5 状态、新增「auth 模块交付说明」小节、追加本声明。
+> - **未改动**:`packages/shared/**`、`schema.prisma`、`apps/web/**`、`package.json`、`pnpm-lock.yaml`。
+>
+> **本节曾提出的一处问题已由车道 C 解决**:第三节 **T3** 的恒等式注释过去是旧 F6
+> (`earnedPoints − spentPoints − frozenPoints = points`),与 v1.3 裁决矛盾;
+> 车道 C 已在 `de78d82` 改为 `earnedPoints − spentPoints = points`(F6 v1.3),
+> 并把 `frozenPoints` 明确为 `points` 的保留子集。详见
+> `docs/ai-logs/ops/2026-10-10-2250_W1-01_auth.md` 第 5 节风险 E。
+>
+> **本条目的 rebase 记录**:本分支已于 2026-10-10 对 `origin/main`(`f0ed848`)执行 rebase;
+> `docs/CONTRACTS.md` 两侧改动落在文件不同区域,git 未产生冲突。
+> 我方改动(#3-#5 状态、交付说明小节、本声明)与车道 C 的改动
+> (「前端调用约定」第 4 条错误信封、T3 恒等式行)**均已保留**。
