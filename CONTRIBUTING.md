@@ -80,6 +80,22 @@ Every PR description must contain:
 Every PR needs at least one human reviewer, who **checks the ops log against the diff**.
 A log that says "3 files changed" and a diff with 8 files is a rejected PR.
 
+### 4.1 合并顺序:**先请求评审,评审通过后才合并**(2026-10-12 新增)
+
+真实事故(PR #1):作者在 rebase 之后**先被合并、后才点"请求评审"**,结果 review 请求落在了一个已关闭的 PR 上,
+GitHub 不允许再补交评审 —— 那次评审只能挪到"合并后的代码"上补做。
+
+**规则**:
+
+1. 作者认为可以合并时,**先在 PR 里留一条评论**:`已自测通过(typecheck + 全部单测 + 手工验证),请求评审 @<所有者>`。
+2. 评审者**评审通过后再点合并**。**不要"先合并再评审"**,也不要默认"没消息就是可以合"。
+3. 评审者如果要合并,应在 PR 里回一句"评审通过,已合并" —— 让流程在 PR 上留痕。
+4. 需要**第二个 PR 顺序合并**时,顺序由所有者指定;**被并的那个 PR 的作者要再 rebase 一次**,
+   这是正常成本,不是返工(`docs/PROJECT_GUIDE.md` 14.5)。
+
+> 为什么写死成评论而不是只靠按钮:合并权在仓库所有者手里,而**所有者并不知道作者是否已准备好**;
+> 一条明确评论能把"我以为他还没好"这种猜测消掉。
+
 ## 5. Shared files (serialize your edits)
 
 These are touched by everyone. Announce in your ops log before changing them, and update
