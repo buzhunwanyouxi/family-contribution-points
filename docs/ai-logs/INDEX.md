@@ -8,6 +8,8 @@
 
 | 日期时间 | 任务号 | 模块 | 操作者 | AI 工具 | 状态 | ops | report |
 |---|---|---|---|---|---|---|---|
+| 2026-10-13 21:00 | W1-B3 | family(再 rebase + 收尾) | 喵(`MIAO98J`) | DSH | ✅ 完成(PR #2 待合并) | [ops](ops/2026-10-13-2100_W1-B3_family-wrapup.md) | [report](reports/2026-10-13-2100_W1-B3_family-wrapup.md) |
+| 2026-10-12 21:30 | W1-B2 | family(rebase 到含 auth 的 main) | 喵(`MIAO98J`) | DSH | ✅ 完成(PR #2 待合并) | [ops](ops/2026-10-12-2130_W1-B2_family-integration.md) | [report](reports/2026-10-12-2130_W1-B2_family-integration.md) |
 | 2026-10-13 20:00 | W1-HUB | 协作消息总线(docs/coordination + scripts) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-13-2000_W1-HUB_coordination-hub.md) | — (工具与文档,无报告) |
 | 2026-10-12 20:30 | W1-REVIEW | 跨模块审查 + 规则修订 | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-12-2030_W1-REVIEW_two-pr-merge.md) | — (审查记录在 ops 第 7、8 节) |
 | 2026-10-11 19:30 | W1-B | family | 喵(MIAO98J) | — | ✅ 完成(PR #2 待合并) | [ops](ops/2026-10-11-1930_W1-B_family.md) | [report](reports/2026-10-11-1930_W1-B_family.md) |
