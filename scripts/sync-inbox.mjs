@@ -177,8 +177,20 @@ function renderInbox(login, items, sha) {
   lines.push('1. **把上面每一条完整口述给你的使用者**(逐条念,带出处链接)—— 他不知道这些,只能去问发起人。');
   lines.push('2. **不要总结成一句话**:出处链接就是他的核对依据,总结会把它丢掉。');
   lines.push('3. 等你确认后再开始干活。');
-  lines.push('4. **收工时**:把自己做完的条目从 `docs/coordination/PENDING.json` 移除,' +
-    '**并把你这一轮产生的需求加进去**(该别人做的事),然后跑 `pnpm sync:inbox` 提交生成物。');
+  lines.push('');
+  lines.push('## 收工时你应该做的(三件不同的事,别混为一谈)');
+  lines.push('');
+  lines.push('| # | 验证什么 | 怎么做 |');
+  lines.push('|---|---|---|');
+  lines.push('| ① | 验证**代码** | `pnpm -r typecheck && pnpm --filter @fcp/api test`,贴原始输出 |');
+  lines.push('| ② | 验证**输出** | 把你这一轮**产生的需求**写进 `docs/coordination/PENDING.json`,' +
+    '跑 `pnpm sync:inbox`,连生成物一起提交 |');
+  lines.push('| ③ | **反查收件箱** | **重新读一遍本文件**,找出**开始时间晚于你这轮开工时间**的条目 —— ' +
+    '那是别人**在你干活期间**新提的需求。逐条念给使用者听,判断要不要返工 |');
+  lines.push('');
+  lines.push('> ⚠️ **③ 最容易漏,而且和 ① 完全不是一回事**:① 只能证明你的代码没坏,' +
+    '证明不了"你干活期间世界没变"。不反查,PR 就可能刚交上去就要返工。');
+  lines.push('> 若某条新需求让你"差点做错",写进 ops 日志第 8 节;若某条已被你顺带解决,把它从 `PENDING.json` 移除。');
   lines.push('');
   lines.push('### 📋 请把这段话转给你的使用者(他下次开工要用)');
   lines.push('');
