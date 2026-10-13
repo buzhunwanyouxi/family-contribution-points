@@ -2,12 +2,12 @@
 
 > ⚠️ **本文件由 `scripts/sync-inbox.mjs` 自动生成,不要手工编辑。**
 
-**最后生成**:2026-10-13 21:56 @ `feee55b`  ·  共 6 条待办
+**最后生成**:2026-10-13 22:20 @ `7089413`  ·  共 5 条待办
 
 | 人 | 待办数 | 收件箱 |
 |---|---|---|
 | MIAO98J | 1 | [INBOX-MIAO98J.md](INBOX-MIAO98J.md) |
-| buzhunwanyouxi | 4 | [INBOX-buzhunwanyouxi.md](INBOX-buzhunwanyouxi.md) |
+| buzhunwanyouxi | 3 | [INBOX-buzhunwanyouxi.md](INBOX-buzhunwanyouxi.md) |
 | sun-521-s | 1 | [INBOX-sun-521-s.md](INBOX-sun-521-s.md) |
 
 ## 全部条目
@@ -15,8 +15,7 @@
 | id | 类型 | 标题 | 发给 | since | 出处 |
 |---|---|---|---|---|---|
 | `auth-401-wording` | 开工 | 401 文案:缺少 token 时也说"登录已过期" | sun-521-s | 2026-10-12T05:22:09Z | https://github.com/buzhunwanyouxi/family-contribution-points/pull/1#issuecomment-6118267317 |
-| `invite-10b-unclaimed` | 等拍板 | #10b 邀请码展示接口无人认领 | buzhunwanyouxi | 2026-10-12T04:12:00Z | docs/CONTRACTS.md#10b |
+| `frontend-use-invite-endpoint` | 开工 | 前端 P12 可以接 #10b 了(拿邀请码 + 出二维码) | buzhunwanyouxi | 2026-10-13T14:30:00Z | docs/CONTRACTS.md#10b |
 | `family-unlock-for-frontend` | 必须知道 | family 模块合并后,前端可以切掉 Mock 走真实接口 | buzhunwanyouxi | 2026-10-12T05:04:25Z | apps/web/src/api/config.ts |
 | `family-user-directory-port` | 开工 | family 应改为依赖 UserDirectoryPort,而不是自己维护一份用户表 | MIAO98J | 2026-10-13T13:56:00Z | apps/api/src/composition.ts |
-| `add-cross-module-integration-test` | 必须知道 | 已补上跨模块集成测试(此前 215 个单测全绿却漏掉一个 500) | buzhunwanyouxi | 2026-10-13T13:56:00Z | apps/api/src/composition.test.ts |
 | `notify-add-email-channel` | 必须知道 | 需求通知目前只有邮件一条通道(没有微信/短信/私信) | buzhunwanyouxi | 2026-10-12T04:12:00Z | docs/coordination/README.md#通道边界 |

@@ -13,7 +13,8 @@ export type FamilyErrorCode =
   | 'invalid_invite_code'
   | 'invite_expired'
   | 'not_a_member'
-  | 'user_not_found';
+  | 'user_not_found'
+  | 'role_not_allowed';
 
 export interface ErrorBody {
   error: string;
@@ -93,6 +94,25 @@ export class FamilyError extends Error {
       status: 404,
       message: '账号不存在,请重新登录',
       logReason: 'user_not_found',
+    });
+  }
+
+  /**
+   * The caller IS in the family but their role may not do this (CONTRACTS #10b: owner/admin only).
+   *
+   * A separate code from `not_a_member` on purpose. Reusing that one would tell a child who taps
+   * "show invite code" that they are "not a member of this family", which is both false and
+   * alarming -- they would think the app lost their family. This message says what is actually true:
+   * the permission is missing, a parent can share the code instead.
+   *
+   * Still a 403 with no detail about the family, so it leaks nothing to a stranger: an unknown
+   * family id answers `not_a_member`, and a real family the caller is not in answers the same way.
+   */
+  static roleNotAllowed(): FamilyError {
+    return new FamilyError('role_not_allowed', {
+      status: 403,
+      message: '只有家庭创建者可以分享邀请码,请让家长发给你',
+      logReason: 'role_not_allowed',
     });
   }
 }

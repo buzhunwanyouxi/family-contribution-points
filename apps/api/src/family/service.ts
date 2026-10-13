@@ -11,6 +11,8 @@
  * earnedPoints + frozenPoints" here, don't: read the guide first.
  */
 import { FamilyError } from './errors.js';
+import { createFamilyInviteService } from './invite-view.js';
+import type { FamilyInviteView } from './invite-view.js';
 import {
   createCryptoRandom,
   generateUniqueInviteCode,
@@ -68,6 +70,13 @@ export interface FamilyService {
   listFamilies(userId: string): Promise<FamilySummary[]>;
   /** CONTRACTS #9. Throws `not_a_member` unless `userId` belongs to `familyId`. */
   listMembers(userId: string, familyId: string): Promise<MemberSummary[]>;
+  /**
+   * CONTRACTS #10b (added 2026-10-13). Owner/admin only; throws `not_a_member` when the caller is
+   * not in the family and `role_not_allowed` when their role may not share the code.
+   *
+   * Implemented in `invite-view.ts` -- see that file for why it is not inlined here.
+   */
+  getInvite(userId: string, familyId: string): Promise<FamilyInviteView>;
 }
 
 export interface CreateFamilyServiceOptions {
@@ -265,5 +274,11 @@ export function createFamilyService(options: CreateFamilyServiceOptions = {}): F
     return rows.map(toMemberSummary);
   }
 
-  return { createFamily, joinFamily, listFamilies, listMembers };
+  // CONTRACTS #10b lives in `invite-view.ts`; it is delegated rather than reimplemented so there is
+  // one place that decides who may share a code.
+  const inviteService = createFamilyInviteService({ repository });
+  const getInvite = (userId: string, familyId: string): Promise<FamilyInviteView> =>
+    inviteService.getInvite(userId, familyId);
+
+  return { createFamily, joinFamily, listFamilies, listMembers, getInvite };
 }

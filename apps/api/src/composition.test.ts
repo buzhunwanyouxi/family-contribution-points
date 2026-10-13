@@ -12,7 +12,7 @@
  */
 import Fastify from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createAppServices, familyInviteCode } from './composition.js';
+import { createAppServices } from './composition.js';
 import type { AppServices } from './composition.js';
 import { registerRoutes } from './routes/index.js';
 
@@ -20,12 +20,11 @@ const SECRET = 'integration-test-secret-value';
 
 describe('auth -> family integration', () => {
   let app: ReturnType<typeof Fastify>;
-  let services: AppServices;
   let ownerToken: string;
   let otherToken: string;
 
   beforeAll(async () => {
-    services = createAppServices({ secret: SECRET });
+    const services = createAppServices({ secret: SECRET });
     app = Fastify();
     await registerRoutes(app, { services });
     await app.ready();
@@ -99,12 +98,8 @@ describe('auth -> family integration', () => {
   });
 
   /**
-   * The join flow cannot be driven over HTTP yet, and that is a finding rather than a shortcut:
-   * `family` in the create/list responses is the frozen `FamilySummary`, which carries no
-   * `inviteCode`, and CONTRACTS #10b (`GET /api/families/:fid/invite`) is still unclaimed. So an
-   * owner currently has no way to obtain the code they must share. This test therefore reaches the
-   * repository directly to obtain one; when #10b lands it should be rewritten to fetch the code over
-   * HTTP, which will also prove the endpoint works.
+   * CONTRACTS #10b landed on 2026-10-13, so the code is now obtainable over HTTP -- which is what
+   * makes this a genuine end-to-end join test rather than a repository shortcut.
    */
   it('a second user can join with the invite code and then see the family (CONTRACTS #7)', async () => {
     const created = await app.inject({
@@ -116,8 +111,14 @@ describe('auth -> family integration', () => {
     expect(created.statusCode, `body=${created.body}`).toBe(201);
     const familyId = created.json().family.id as string;
 
-    const inviteCode = familyInviteCode(services.familyRepository, familyId);
-    expect(inviteCode, 'the repository should have minted a code').toBeTruthy();
+    const invite = await app.inject({
+      method: 'GET',
+      url: `/api/families/${familyId}/invite`,
+      headers: { authorization: `Bearer ${ownerToken}` },
+    });
+    expect(invite.statusCode, `body=${invite.body}`).toBe(200);
+    const inviteCode = invite.json().inviteCode as string;
+    expect(inviteCode).toBeTruthy();
 
     const joined = await app.inject({
       method: 'POST',

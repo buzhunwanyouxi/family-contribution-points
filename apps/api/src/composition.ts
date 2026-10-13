@@ -61,25 +61,8 @@ export interface AppServices {
   familyService: FamilyService;
   /** Exposed for diagnostics and tests, e.g. asserting both modules see the same accounts. */
   authRepository: AuthRepository;
-  /**
-   * Exposed for the same reason, and because a family's invite code is currently unreadable over
-   * HTTP -- see `familyInviteCode()`.
-   */
+  /** Exposed for the same reason; also what a future job runner would reach for. */
   familyRepository: InMemoryFamilyRepository;
-}
-
-/**
- * Read a family's invite code straight out of the repository.
- *
- * This exists only because CONTRACTS #10b (`GET /api/families/:fid/invite`) is not implemented, so
- * an owner has no HTTP way to obtain the code they must hand to a joiner. Once #10b lands, callers
- * should fetch it over HTTP and this helper can be deleted.
- */
-export function familyInviteCode(
-  repository: InMemoryFamilyRepository,
-  familyId: string,
-): string | undefined {
-  return repository.snapshot().families.find((f) => f.id === familyId)?.inviteCode;
 }
 
 function toDirectoryUser(row: AuthUserRecord): DirectoryUser {

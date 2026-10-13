@@ -28,7 +28,7 @@
 | 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
 | 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
 | 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(待实现)** | 车道 C | 2026-10-10 |
-| 10b | GET | `/api/families/:fid/invite` | header: Bearer(须为 owner/admin) | `{inviteCode, inviteExpireAt, qrPayload}` | **待认领**(前端 P12 需要,尚未实现) | 车道 C 登记 | 2026-10-12 |
+| 10b | GET | `/api/families/:fid/invite` | header: Bearer(须为 owner/admin) | `{inviteCode, inviteExpireAt, qrPayload}` | **已定稿(已实现)** | 发起人(2026-10-13 认领) | 2026-10-13 |
 | 11 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
 | 12 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
 | 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
@@ -92,8 +92,24 @@ interface AuthResult   { token: string; user: UserSummary; families: FamilySumma
 | 时区 | 默认 `Asia/Shanghai`,非法 IANA 名 → `400` |
 | 非成员 / 家庭不存在 | **统一回 `403 not_a_member`**,避免用 `:fid` 探测家庭是否存在 |
 
-> ⚠️ **邀请码展示接口尚未实现**:前端 P12 需要 `GET /api/families/:fid/invite`(见上表 #10b),
-> 当前**不在任何人的模块里**。要做的先认领 #10b,不要顺手在别处加接口。
+> ✅ **邀请码展示接口已实现(2026-10-13,上表 #10b)**:`GET /api/families/:fid/invite`。
+> 实现落点 `apps/api/src/family/invite-view.ts`(用例)+ `routes/family.ts`(挂载),
+> 测试 `apps/api/src/family/invite-view.test.ts`(6 个用例,含授权矩阵)。
+>
+> **为什么它曾经是阻塞项**:`POST /api/families` 返回的 `family` 是冻结的 `FamilySummary`,
+> **不含 `inviteCode`**,而本接口是唯一读取途径 —— 在它实现之前,**创始人拿不到邀请码,任何人都无法加入家庭**。
+>
+> **授权行为(冻结)**:
+>
+> | 调用者 | 结果 |
+> |---|---|
+> | owner / admin | 200 + `{inviteCode, inviteExpireAt, qrPayload}` |
+> | 家庭成员但角色是 member/child | **403 `role_not_allowed`** —— 特意**不用** `not_a_member`,因为"你不是这个家庭的成员"对家庭成员是假话,会让人以为家庭丢了 |
+> | 不在该家庭,或该家庭不存在 | **统一 403 `not_a_member`**(与上面同码,保持防探测) |
+> | 无 token | 401 `unauthorized` |
+>
+> `qrPayload` 形如 `https://family-points.app/join?code=<邀请码>`,前端据此生成二维码;
+> 邀请码**已过期时仍返回**并附上过去的过期时间,由前端提示"这个码过期了",而不是抛错。
 
 ### auth 模块交付说明(#3-#5 已实现,车道 A)
 

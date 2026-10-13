@@ -17,12 +17,18 @@
     "          没有它,解锁信号会丢 —— 被等的人只会删掉自己那条待办,等待方重读收件箱什么也看不到。",
     "改法:加了需求就加一条;做完了就把这条删掉并在 ops 日志里留痕。同一件事不要写两条。"
   ],
-  "people": ["buzhunwanyouxi", "sun-521-s", "MIAO98J"],
+  "people": [
+    "buzhunwanyouxi",
+    "sun-521-s",
+    "MIAO98J"
+  ],
   "items": [
     {
       "id": "auth-401-wording",
       "title": "401 文案:缺少 token 时也说\"登录已过期\"",
-      "to": ["sun-521-s"],
+      "to": [
+        "sun-521-s"
+      ],
       "kind": "task",
       "since": "2026-10-12T05:22:09Z",
       "source": "https://github.com/buzhunwanyouxi/family-contribution-points/pull/1#issuecomment-6118267317",
@@ -31,20 +37,24 @@
       "note": "低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可"
     },
     {
-      "id": "invite-10b-unclaimed",
-      "title": "#10b 邀请码展示接口无人认领",
-      "to": ["buzhunwanyouxi"],
-      "kind": "decision",
-      "since": "2026-10-12T04:12:00Z",
+      "id": "frontend-use-invite-endpoint",
+      "title": "前端 P12 可以接 #10b 了(拿邀请码 + 出二维码)",
+      "to": [
+        "buzhunwanyouxi"
+      ],
+      "kind": "task",
+      "since": "2026-10-13T14:30:00Z",
       "source": "docs/CONTRACTS.md#10b",
-      "action": "决定优先级并指派:是自己做,还是让 B 在 family 模块里接着做(P12 页面需要它)",
-      "needs": "人拍板",
-      "note": "【2026-10-13 升级:不再是'不紧急'】实测确认:POST /api/families 的 family 对象是冻结的 FamilySummary,不含 inviteCode,而 #10b 又是唯一的读取途径 —— 所以现在创始人拿不到邀请码,别人根本无法加入家庭。这条已从'P12 需要'变成'加入家庭这条路走不通'"
+      "action": "在 FamilyPage 里调用 GET /api/families/:fid/invite,把 qrPayload 渲染成二维码,并处理 role_not_allowed(非 owner/admin 时的提示)",
+      "needs": "AI 可直接开工",
+      "note": "后端已实现并有 6 个测试;前端此前只在注释里提到过这个路径,没有真正调用"
     },
     {
       "id": "family-unlock-for-frontend",
       "title": "family 模块合并后,前端可以切掉 Mock 走真实接口",
-      "to": ["buzhunwanyouxi"],
+      "to": [
+        "buzhunwanyouxi"
+      ],
       "kind": "must-know",
       "since": "2026-10-12T05:04:25Z",
       "source": "apps/web/src/api/config.ts",
@@ -55,7 +65,9 @@
     {
       "id": "family-user-directory-port",
       "title": "family 应改为依赖 UserDirectoryPort,而不是自己维护一份用户表",
-      "to": ["MIAO98J"],
+      "to": [
+        "MIAO98J"
+      ],
       "kind": "task",
       "since": "2026-10-13T13:56:00Z",
       "source": "apps/api/src/composition.ts",
@@ -64,20 +76,11 @@
       "note": "现在是临时桥:装配层把 auth 建的账号镜像给 family 的私有用户表。Prisma 模式没这个问题(同一张 User 表),所以这是内存模式专属的补丁。改动属于 family 模块内部设计,故指给模块负责人;若暂不做也不影响功能,只是多一份需要同步的状态"
     },
     {
-      "id": "add-cross-module-integration-test",
-      "title": "已补上跨模块集成测试(此前 215 个单测全绿却漏掉一个 500)",
-      "to": ["buzhunwanyouxi"],
-      "kind": "must-know",
-      "since": "2026-10-13T13:56:00Z",
-      "source": "apps/api/src/composition.test.ts",
-      "action": "知悉:新增 composition.test.ts 走真实 HTTP(注册→建家→看成员→登录带家庭),以后装配被改坏会立刻红。建议以后每个跨模块边界都补一条这样的测试",
-      "needs": "知悉即可",
-      "note": "教训:每个模块的单测都自己造数据,所以'模块内部正确'完全不能证明'拼起来能跑'"
-    },
-    {
       "id": "notify-add-email-channel",
       "title": "需求通知目前只有邮件一条通道(没有微信/短信/私信)",
-      "to": ["buzhunwanyouxi"],
+      "to": [
+        "buzhunwanyouxi"
+      ],
       "kind": "must-know",
       "since": "2026-10-12T04:12:00Z",
       "source": "docs/coordination/README.md#通道边界",

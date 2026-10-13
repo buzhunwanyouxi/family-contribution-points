@@ -137,6 +137,21 @@ export async function familyRoutes(
       return fail(reply, request, error);
     }
   });
+
+  // CONTRACTS #10b (added 2026-10-13). Registered after `.../members`, which is unambiguous for
+  // Fastify's router, but kept adjacent so the two `:fid` sub-resources read together.
+  // Returns the flat `{inviteCode, inviteExpireAt, qrPayload}` shape frozen in the contract.
+  app.get('/families/:fid/invite', { preHandler: requireAuth }, async (request, reply) => {
+    const params = request.params as { fid?: unknown };
+    const familyId = typeof params.fid === 'string' ? params.fid : '';
+    if (familyId.length === 0) return fail(reply, request, FamilyError.validation({ field: 'fid' }));
+
+    try {
+      return reply.send(await service.getInvite(currentUserId(request), familyId));
+    } catch (error) {
+      return fail(reply, request, error);
+    }
+  });
 }
 
 export interface RegisterFamilyOptions {

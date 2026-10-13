@@ -8,6 +8,7 @@
 
 | 日期时间 | 任务号 | 模块 | 操作者 | AI 工具 | 状态 | ops | report |
 |---|---|---|---|---|---|---|---|
+| 2026-10-13 22:30 | W1-10B | family(追加 #10b 邀请码展示) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-13-2230_W1-10B_invite-view.md) | — (第 7、8 节含交接与问题清单) |
 | 2026-10-13 22:00 | W1-WIRE | 跨模块装配 + 协作机制修订 | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-13-2200_W1-WIRE_cross-module.md) | — (第 7、8 节含交接与问题清单) |
 | 2026-10-13 21:00 | W1-B3 | family(再 rebase + 收尾) | 喵(`MIAO98J`) | DSH | ✅ 完成(**已合并 feee55b**) | [ops](ops/2026-10-13-2100_W1-B3_family-wrapup.md) | [report](reports/2026-10-13-2100_W1-B3_family-wrapup.md) |
 | 2026-10-12 21:30 | W1-B2 | family(rebase 到含 auth 的 main) | 喵(`MIAO98J`) | DSH | ✅ 完成(PR #2 待合并) | [ops](ops/2026-10-12-2130_W1-B2_family-integration.md) | [report](reports/2026-10-12-2130_W1-B2_family-integration.md) |

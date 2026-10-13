@@ -62,6 +62,14 @@ export type {
   InMemoryUser,
 } from './repository.js';
 
+// CONTRACTS #10b (added 2026-10-13) -- invite sharing, owner/admin only.
+export { createFamilyInviteService } from './invite-view.js';
+export type {
+  CreateFamilyInviteServiceOptions,
+  FamilyInviteService,
+  FamilyInviteView,
+} from './invite-view.js';
+
 export { createPrismaFamilyRepository } from './repository.prisma.js';
 export type {
   PrismaFamilyDelegate,
