@@ -3,25 +3,25 @@
 > ⚠️ **本文件由 `scripts/sync-inbox.mjs` 自动生成,不要手工编辑。**
 > 要新增/移除待办,请改 [`PENDING.json`](PENDING.json);要改权威内容,请改 `source` 指向的那份文档。
 
-**最后生成**:2026-10-13 21:01 @ `unknown`  ·  **你现在必须知道的**:暂无待办
+**最后生成**:2026-10-13 21:56 @ `feee55b`  ·  **你现在必须知道的**:1 件开工
 
 ---
 
-## 你现在没有待办
+## 开工(1)
 
-这不代表没事可做 —— 去 [`OWNERS.md`](../ai-logs/OWNERS.md) 看有没有空闲模块可以认领,
-或去 [`ROADMAP.md`](../ROADMAP.md) 看有没有标记为"待认领"的行。
+### 1. family 应改为依赖 UserDirectoryPort,而不是自己维护一份用户表
+
+- **开工**:把 family/repository.ts 里 7 处 users.has/get/set 改成查询注入的 UserDirectoryPort(参照 auth 的 FamilyDirectoryPort 反向对称),然后删掉 `apps/api/src/composition.ts` 里的 createUserSyncingAuthRepository 桥
+- **从此刻起有效**:2026-10-13T13:56:00Z
+- **权威出处**:apps/api/src/composition.ts
+- **需要谁**:AI 可直接开工
+- **备注**:现在是临时桥:装配层把 auth 建的账号镜像给 family 的私有用户表。Prisma 模式没这个问题(同一张 User 表),所以这是内存模式专属的补丁。改动属于 family 模块内部设计,故指给模块负责人;若暂不做也不影响功能,只是多一份需要同步的状态
 
 ---
 
-## 谁在等你(1)
+## 谁在等你(0)
 
-下面这些待办**卡在你这里**。你收工时如果做完了相关的事,
-请去 [`PENDING.json`](PENDING.json) 把对应的 `waiting_on` 删掉 —— 否则对方不知道已经解锁。
-
-- `family-unlock-for-frontend` — family 模块合并后,前端可以切掉 Mock 走真实接口
-  - 卡在:buzhunwanyouxi 的这件事要等你完成
-  - 出处:apps/web/src/api/config.ts
+暂时没有人的待办写着"要等你"。
 
 ---
 

@@ -47,6 +47,15 @@ export const loginBodySchema = z.object({
 });
 
 export interface AuthRoutesOptions {
+  /**
+   * An already-built service. Prefer this when the composition layer must share state with other
+   * modules (e.g. one user store for auth + family).
+   *
+   * Mirrors `registerFamily`'s `service` option so both lanes wire up the same way. When omitted the
+   * service is built here from the remaining options, exactly as before -- existing callers are
+   * unaffected.
+   */
+  service?: AuthService;
   repository?: AuthRepository;
   tokens?: TokenCodec;
   secret?: string;
@@ -119,7 +128,7 @@ export async function registerAuth(
   options: AuthRoutesOptions = {},
 ): Promise<void> {
   let secret = options.secret;
-  if (secret === undefined) {
+  if (secret === undefined && options.service === undefined) {
     const resolved = resolveJwtSecret();
     secret = resolved.secret;
     if (resolved.source === 'dev-fallback') {
@@ -130,21 +139,23 @@ export async function registerAuth(
     }
   }
 
-  const service = createAuthService({
-    repository: options.repository,
-    tokens: options.tokens,
-    secret,
-    ttlSeconds: options.ttlSeconds,
-    issuer: options.issuer,
-    clockToleranceSeconds: options.clockToleranceSeconds,
-    nowSeconds: options.nowSeconds,
-    familyDirectory: options.familyDirectory,
-    logger: {
-      warn: (message, meta) => {
-        app.log.warn({ auth: meta }, message);
+  const service =
+    options.service ??
+    createAuthService({
+      repository: options.repository,
+      tokens: options.tokens,
+      secret,
+      ttlSeconds: options.ttlSeconds,
+      issuer: options.issuer,
+      clockToleranceSeconds: options.clockToleranceSeconds,
+      nowSeconds: options.nowSeconds,
+      familyDirectory: options.familyDirectory,
+      logger: {
+        warn: (message, meta) => {
+          app.log.warn({ auth: meta }, message);
+        },
       },
-    },
-  });
+    });
 
   app.decorate('auth', service);
   app.decorate('requireAuth', createRequireAuth(service));
