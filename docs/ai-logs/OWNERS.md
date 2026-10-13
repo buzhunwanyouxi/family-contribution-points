@@ -22,7 +22,7 @@
 | 模块 | 目录 | 状态 | 负责人(人类) | AI 工具 | 起始日期 | 关联需求 | 备注 |
 |---|---|---|---|---|---|---|---|
 | auth | `apps/api/src/auth` | **进行中** | Miao(`sun-521-s`) | DSH | 2026-10-10 | A1, A3, A8 | 车道 A。接口已由 C 冻结(CONTRACTS #3-#5);**注册 / 登录 / JWT / `GET /api/auth/me` 已实现并有 91 用例**(23 文件),待 PR review 合并;**A8 PIN 登录与"找回密码"未做**;交接点 `FamilyDirectoryPort`(见 CONTRACTS「auth 模块交付说明」) |
-| family | `apps/api/src/family` | **进行中** | 喵(`MIAO98J`) | — | 2026-10-10 | A2, A4-A7 | 车道 B。接口已由 C 冻结(CONTRACTS #6-#9),实现进行中 |
+| family | `apps/api/src/family` | **已完成** | 喵(`MIAO98J`) | DSH | 2026-10-10 | A2, A4, A5, A6 | 车道 B。**W1-03/W1-04/W1-05/W1-06 已交付**:CONTRACTS #6-#9 四个接口 + 76 个测试,并已 rebase 到含 auth 的 `main`,完成 `FamilyDirectoryPort` 交接(ops `2026-10-11-1930_W1-B_family.md` 与 `2026-10-12-2130_W1-B2_family-integration.md`)。**A6/A7(角色调整、共同管理员、创始人转移/注销)与 A8 未做**,下一轮可再次认领 |
 | task-template | `apps/api/src/template` | 空闲 | — | — | — | B1-B8 | **仅创始人可写** |
 | task-temp | `apps/api/src/task` | 空闲 | — | — | — | C1-C5 | 临时任务、悬赏冻结 |
 | assignment | `apps/api/src/assignment` | 空闲 | — | — | — | D1-D5 | 接取、退单、兜底指派 |

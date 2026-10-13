@@ -23,10 +23,10 @@
 | 3 | POST | `/api/auth/register` | `{account, password, nickname}` | `{token, user, families}` | **已定稿(已实现)** | 车道 C 冻结 / 车道 A 实现 | 2026-10-10 |
 | 4 | POST | `/api/auth/login` | `{account, password}` | `{token, user, families}` | **已定稿(已实现)** | 车道 C 冻结 / 车道 A 实现 | 2026-10-10 |
 | 5 | GET | `/api/auth/me` | header: Bearer | `{user, families}` | **已定稿(已实现)** | 车道 C 冻结 / 车道 A 实现 | 2026-10-10 |
-| 6 | POST | `/api/families` | `{name, timezone?}` | `{family, membership}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
-| 7 | POST | `/api/families/join` | `{inviteCode, nickname?}` | `{family, membership}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
-| 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
-| 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(待实现)** | 车道 C 代拟 | 2026-10-10 |
+| 6 | POST | `/api/families` | `{name, timezone?}` | `{family, membership}` | **已定稿(已实现 201)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
+| 7 | POST | `/api/families/join` | `{inviteCode, nickname?}` | `{family, membership}` | **已定稿(已实现 200,幂等)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
+| 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
+| 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
 | 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(待实现)** | 车道 C | 2026-10-10 |
 | 10b | GET | `/api/families/:fid/invite` | header: Bearer(须为 owner/admin) | `{inviteCode, inviteExpireAt, qrPayload}` | **待认领**(前端 P12 需要,尚未实现) | 车道 C 登记 | 2026-10-12 |
 | 11 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
@@ -143,6 +143,37 @@ app.get('/api/families/:fid/members', { preHandler: app.requireAuth }, async (re
 - 错误:`{error: string, message?: string, details?: unknown}`,状态码语义化。
 - 金额/积分:JSON 数字,保留 2 位小数;百分比为 0-100 整数。
 
+### family 模块交付说明(#6-#9 已实现,车道 B)
+
+实现落点:`apps/api/src/family/**`(8 个源文件 + 3 个测试文件,76 个用例)+
+`apps/api/src/routes/family.ts`。上表 #6-#9 的路径、入参、出参**逐字未改**,本轮**无破坏性变更**。
+
+- **成功状态码**:`POST /api/families` → **201**;`POST /api/families/join` → **200**(幂等);
+  `GET /api/families` 与 `GET /api/families/:fid/members` → 200。
+- **邀请码、`join` 幂等、`nickname` 语义、家庭名长度、时区、跨家庭 403**:正式规范见上一节
+  「邀请码规范」,此处**刻意不重复**。
+- **错误响应**:按本文件「前端调用约定」第 4 条,失败一律**同时**给出 `{error, message}` 两个字段。
+  本模块新增的机器码:`validation_error`(400)、`invalid_invite_code`(404)、`invite_expired`(400)、
+  `not_a_member`(403)、`user_not_found`(404)——与 auth 既有码不冲突。
+- **积分四个数字只转发、不计算**:`points / earnedPoints / spentPoints / frozenPoints` 直接取自
+  `Membership`,本模块不做任何加减或取整;唯一口径实现仍是
+  `apps/api/src/points/ledger.ts`(F5/F6 v1.3)。
+
+**跨模块:车道 B 已完成对车道 A 的交接**
+
+```ts
+// apps/api/src/routes/index.ts —— 顺序:先建 family 服务,再装 auth,最后装 family 路由
+const familyService = createFamilyService();
+await registerAuth(app, { familyDirectory: createFamilyDirectory(familyService) });
+await registerFamily(app, { service: familyService });
+```
+
+`createFamilyDirectory()`(`apps/api/src/family/directory.ts`)满足 `auth/types.ts` 声明的
+`FamilyDirectoryPort`;**未接线时 `families` 恒为 `[]`**(契约规则 5),接线后 register / login / me
+三处都会带上家庭列表。family 路由复用 `app.requireAuth` + `currentUserId(request)`,**不自建中间件**;
+若 `app.requireAuth` 缺失(注册顺序写错),`registerFamily()` **直接抛错拒绝启动**,
+而不是静默变成一个公开接口。
+
 ---
 
 ## 三、数据表契约
@@ -211,3 +242,10 @@ package.json, pnpm-lock.yaml
 > `docs/CONTRACTS.md` 两侧改动落在文件不同区域,git 未产生冲突。
 > 我方改动(#3-#5 状态、交付说明小节、本声明)与车道 C 的改动
 > (「前端调用约定」第 4 条错误信封、T3 恒等式行)**均已保留**。
+### 变更登记(谁在哪一轮动过上面这些文件)
+
+| 日期 | 车道 / 模块 | 文件 | 变更 |
+|---|---|---|---|
+| 2026-10-10 | auth(车道 A,W1-01) | `apps/api/src/routes/index.ts`、本文件 | 注册 auth 路由(根实例);冻结 #3-#5;新增「auth 模块交付说明」 |
+| 2026-10-11 | family(车道 B,W1-B) | `apps/api/src/routes/index.ts`、本文件 | 注册 family 路由;#6-#9 置为已实现;新增「family 模块交付说明」 |
+| 2026-10-12 | family(车道 B,W1-B2) | `apps/api/src/routes/index.ts`、本文件 | rebase 到含 auth 的 `main`;改为按「auth 模块交付说明」的写法复用 `app.requireAuth` + `currentUserId`;在 `routes/index.ts` 完成 `familyDirectory` 交接 |

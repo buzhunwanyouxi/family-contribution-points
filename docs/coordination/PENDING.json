@@ -20,17 +20,6 @@
   "people": ["buzhunwanyouxi", "sun-521-s", "MIAO98J"],
   "items": [
     {
-      "id": "W1-B-PR2-rebase",
-      "title": "PR #2(family 模块)需要 rebase 到最新 main",
-      "to": ["MIAO98J"],
-      "kind": "task",
-      "since": "2026-10-12T05:04:25Z",
-      "source": "https://github.com/buzhunwanyouxi/family-contribution-points/pull/2#issuecomment-6118199026",
-      "action": "按评论里的逐项对照表解冲突(CONTRACTS.md 保留双方小节、INDEX/OWNERS 用 main 版本、routes/index.ts 两行注册都留),然后 push --force-with-lease",
-      "needs": "AI 可直接开工",
-      "note": "behind 6;冲突点已实测过,对照表里写清了每个文件用哪一边"
-    },
-    {
       "id": "auth-401-wording",
       "title": "401 文案:缺少 token 时也说\"登录已过期\"",
       "to": ["sun-521-s"],
