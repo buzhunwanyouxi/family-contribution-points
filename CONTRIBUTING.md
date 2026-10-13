@@ -103,7 +103,27 @@ These are touched by everyone. Announce in your ops log before changing them, an
 
 `packages/shared/src/types/**` - `apps/api/prisma/schema.prisma` (+ migrations) -
 `apps/api/src/routes/index.ts` - `packages/shared/src/constants.ts` -
-`docs/CONTRACTS.md` - `package.json` / `pnpm-lock.yaml`
+`docs/CONTRACTS.md` - `package.json` / `pnpm-lock.yaml` -
+`docs/coordination/PENDING.json` (每人只改自己相关条目)
+
+### 5.1 协作消息总线:三条硬规矩(2026-10-13 新增)
+
+背景与机制见 [`docs/coordination/README.md`](docs/coordination/README.md)。这里只列**必须遵守**的三条:
+
+1. **禁止只回复"收到/好的"。** 任何评论必须携带**具体动作请求**或**状态更新**,否则视为噪声,评审可打回。
+   (多人多 AI 并行时,互相确认的消息会迅速淹没真正有用的信息。)
+2. **消息里不得定义新规则。** 只出现在评论里、没进文档的"要求"一律按**不存在**处理。
+   正确写法是**指回文档**:
+   ```
+   需求出处:docs/CONTRACTS.md #10b (sha: ec5ca31)
+   需要你做:认领并实现该接口,或回复"暂不认领"
+   ```
+3. **同一件事被问第二次 = 系统缺陷。** 说明它没进 `docs/coordination/PENDING.json`。
+   请补录该条目,并在 `note` 里写明"因被重复提问而补录" —— 这是本机制的自我修正路径,
+   不要用"我再说一遍"来解决。
+
+> 配套动作:**开工前读收件箱并口述给你的使用者**(`AGENTS.md` 第 0 步);
+> **完工后把自己做完的条目从 `PENDING.json` 移除**。
 
 ## 6. Rules are not yours to invent
 

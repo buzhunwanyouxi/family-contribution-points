@@ -1,0 +1,74 @@
+{
+  "_readme": [
+    "协作消息总线的唯一待办账本。docs/coordination/INBOX-*.md 与 STATUS.md 都由 scripts/sync-inbox.mjs 从本文件生成,不要手工编辑那些生成物。",
+    "字段说明:",
+    "  id      唯一标识(kebab-case),用于 in-flight 引用与移除",
+    "  title   一句话说清要做什么(会被人念出来,写人话)",
+    "  to      必须知道这件事的人的 GitHub 登录名(数组)",
+    "  kind    decision | blocked | review | task | must-know(决定收件箱里的分组顺序)",
+    "  since   从哪一刻起这条有效(ISO8601,用 UTC);写'变更发生的时间',不是'你写这条的时间'",
+    "  source  权威出处:docs 相对路径#锚点,或具体 URL。**必填** —— 消息不许自己定义规则,只能指向规则",
+    "  action  收件人具体要做什么(可执行的一句话)",
+    "  needs   需要谁出手:AI 可直接开工 / 人拍板 / …",
+    "  note    补充说明(可选)",
+    "改法:加了需求就加一条;做完了就把这条删掉并在 ops 日志里留痕。同一件事不要写两条。"
+  ],
+  "people": ["buzhunwanyouxi", "sun-521-s", "MIAO98J"],
+  "items": [
+    {
+      "id": "W1-B-PR2-rebase",
+      "title": "PR #2(family 模块)需要 rebase 到最新 main",
+      "to": ["MIAO98J"],
+      "kind": "task",
+      "since": "2026-10-12T05:04:25Z",
+      "source": "https://github.com/buzhunwanyouxi/family-contribution-points/pull/2#issuecomment-6118199026",
+      "action": "按评论里的逐项对照表解冲突(CONTRACTS.md 保留双方小节、INDEX/OWNERS 用 main 版本、routes/index.ts 两行注册都留),然后 push --force-with-lease",
+      "needs": "AI 可直接开工",
+      "note": "behind 6;冲突点已实测过,对照表里写清了每个文件用哪一边"
+    },
+    {
+      "id": "auth-401-wording",
+      "title": "401 文案:缺少 token 时也说\"登录已过期\"",
+      "to": ["sun-521-s"],
+      "kind": "task",
+      "since": "2026-10-12T05:22:09Z",
+      "source": "https://github.com/buzhunwanyouxi/family-contribution-points/pull/1#issuecomment-6118267317",
+      "action": "按 logReason 分流文案(缺 token → \"请先登录\";其余 → 保持\"登录已过期\"),或明确回复\"不改\"以便标为已知取舍",
+      "needs": "AI 可直接开工",
+      "note": "低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可"
+    },
+    {
+      "id": "invite-10b-unclaimed",
+      "title": "#10b 邀请码展示接口无人认领",
+      "to": ["buzhunwanyouxi"],
+      "kind": "decision",
+      "since": "2026-10-12T04:12:00Z",
+      "source": "docs/CONTRACTS.md#10b",
+      "action": "决定优先级并指派:是自己做,还是让 B 在 family 模块里接着做(P12 页面需要它)",
+      "needs": "人拍板",
+      "note": "前端 FamilyPage 提到该路径但未真正调用,所以不紧急;但要做 P12 就必须先认领"
+    },
+    {
+      "id": "family-unlock-for-frontend",
+      "title": "family 模块合并后,前端可以切掉 Mock 走真实接口",
+      "to": ["buzhunwanyouxi"],
+      "kind": "must-know",
+      "since": "2026-10-12T05:04:25Z",
+      "source": "apps/web/src/api/config.ts",
+      "action": "PR #2 合并后,把 VITE_USE_MOCK 关掉,用真实 auth + family 接口跑一遍登录/建家/加入流程",
+      "needs": "AI 可直接开工",
+      "note": "前置:PR #2 必须先合并"
+    },
+    {
+      "id": "notify-add-email-channel",
+      "title": "需求通知目前只有邮件一条通道(没有微信/短信/私信)",
+      "to": ["buzhunwanyouxi"],
+      "kind": "must-know",
+      "since": "2026-10-12T04:12:00Z",
+      "source": "docs/coordination/README.md#通道边界",
+      "action": "知悉:所有'要人拍板'的事都靠 GitHub @ + 指派触发邮件;不要把协作需求只发在微信里,那等于没发",
+      "needs": "知悉即可",
+      "note": "GitHub 没有私信 API;微信/短信要另建常驻服务,暂不做"
+    }
+  ]
+}
