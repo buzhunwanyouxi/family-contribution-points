@@ -124,6 +124,11 @@ function itemsFor(login, items) {
     });
 }
 
+/** 某人是否出现在这条待办的 waiting_on 里(登录名或其显示名都算,但提醒用登录名) */
+function itemNamesWaitingOn(item, login) {
+  return (item.waiting_on ?? []).some((w) => String(w).toLowerCase() === login.toLowerCase());
+}
+
 function renderInbox(login, items, sha) {
   const mine = itemsFor(login, items);
   const counts = KIND_ORDER.map((k) => [k, mine.filter((i) => i.kind === k).length]).filter(([, n]) => n > 0);
@@ -164,10 +169,37 @@ function renderInbox(login, items, sha) {
         lines.push(`- **从此刻起有效**:${item.since}`);
         lines.push(`- **权威出处**:${item.source}`);
         if (item.needs) lines.push(`- **需要谁**:${item.needs}`);
+        if (Array.isArray(item.waiting_on) && item.waiting_on.length) {
+          lines.push(`- **要等**:${item.waiting_on.join('、')}`);
+        }
         if (item.note) lines.push(`- **备注**:${item.note}`);
         lines.push('');
       }
     }
+  }
+
+  // 谁在等我?—— 这是我"做完之后能解锁谁"的依据
+  const waitingOnMe = items.filter(
+    (i) => Array.isArray(i.waiting_on) && itemNamesWaitingOn(i, login),
+  );
+  lines.push('---');
+  lines.push('');
+  lines.push(`## 谁在等你(${waitingOnMe.length})`);
+  lines.push('');
+  if (waitingOnMe.length === 0) {
+    lines.push('暂时没有人的待办写着"要等你"。');
+    lines.push('');
+  } else {
+    lines.push('下面这些待办**卡在你这里**。你收工时如果做完了相关的事,');
+    lines.push('请去 [`PENDING.json`](PENDING.json) 把对应的 `waiting_on` 删掉 —— 否则对方不知道已经解锁。');
+    lines.push('');
+    for (const item of waitingOnMe) {
+      const who = (item.to ?? []).join('、');
+      lines.push(`- \`${item.id}\` — ${item.title}`);
+      lines.push(`  - 卡在:${who} 的这件事要等你完成`);
+      lines.push(`  - 出处:${item.source}`);
+    }
+    lines.push('');
   }
 
   lines.push('---');
@@ -178,7 +210,7 @@ function renderInbox(login, items, sha) {
   lines.push('2. **不要总结成一句话**:出处链接就是他的核对依据,总结会把它丢掉。');
   lines.push('3. 等你确认后再开始干活。');
   lines.push('');
-  lines.push('## 收工时你应该做的(三件不同的事,别混为一谈)');
+  lines.push('## 收工时你应该做的(四件不同的事,别混为一谈)');
   lines.push('');
   lines.push('| # | 验证什么 | 怎么做 |');
   lines.push('|---|---|---|');
@@ -187,9 +219,13 @@ function renderInbox(login, items, sha) {
     '跑 `pnpm sync:inbox`,连生成物一起提交 |');
   lines.push('| ③ | **反查收件箱** | **重新读一遍本文件**,找出**开始时间晚于你这轮开工时间**的条目 —— ' +
     '那是别人**在你干活期间**新提的需求。逐条念给使用者听,判断要不要返工 |');
+  lines.push('| ④ | **检查解锁** | 看上面的「谁在等你」一节:你做完的事有没有解除别人的 `waiting_on`?' +
+    '有就去 `PENDING.json` 把它删掉 —— **否则对方不知道已经解锁** |');
   lines.push('');
-  lines.push('> ⚠️ **③ 最容易漏,而且和 ① 完全不是一回事**:① 只能证明你的代码没坏,' +
-    '证明不了"你干活期间世界没变"。不反查,PR 就可能刚交上去就要返工。');
+  lines.push('> ⚠️ **③ 和 ④ 是反方向的两次检查,都不能省**:');
+  lines.push('> ③ 看"**别人给我加了什么**"(新增条目);④ 看"**我给别人解除了什么**"(`waiting_on` 消失)。');
+  lines.push('> 只做 ③ 会漏掉解锁信号:被等的人删掉自己那条待办后,等待方重读收件箱**什么也看不到**。');
+  lines.push('> ① 只能证明代码没坏,证明不了"你干活期间世界变了"。');
   lines.push('> 若某条新需求让你"差点做错",写进 ops 日志第 8 节;若某条已被你顺带解决,把它从 `PENDING.json` 移除。');
   lines.push('');
   lines.push('### 📋 请把这段话转给你的使用者(他下次开工要用)');
@@ -197,17 +233,22 @@ function renderInbox(login, items, sha) {
   lines.push('```');
   lines.push('下次让我开工时,请把这段提示词贴给我,我会先读收件箱再动手:');
   lines.push('');
-  lines.push(`  我的 GitHub 登录名是 ${login},请在 family-points 仓库里按项目规则工作。`);
+  lines.push('  我的 GitHub 登录名是 ' + login + ',请在 family-points 仓库里按项目规则工作。');
   lines.push('  先不要写代码,按顺序做:');
   lines.push(`  1) 读 docs/coordination/INBOX-${login}.md,把每一条完整念给我听(带权威出处链接,不要总结);`);
   lines.push('  2) 读 AGENTS.md、docs/CONTRACTS.md、docs/ai-logs/OWNERS.md 和最近三篇 ops 日志,');
   lines.push('     告诉我:有哪些模块可认领?我要做的事依赖的接口定稿了吗?有什么坑要避开?');
   lines.push('  3) 按 AGENTS.md 第四节填好工作计划,说明我之后怎么验证,然后停下来等我确认;');
-  lines.push('  4) 我确认后再干活;收工时自测、写日志、更新文档、');
-  lines.push('     把你这轮产生的需求写进 docs/coordination/PENDING.json 并提交;');
-  lines.push('  5) 提 PR,并写明"已自测通过,请求评审"。');
+  lines.push('  4) 我确认后再干活。如果要认领模块,**先把 OWNERS.md 的认领改动单独提交**,再开始写代码');
+  lines.push('     (否则两个人可能同时认领同一个模块,白干一场);');
+  lines.push('  5) 收工时要分别做四件事,不要用"跑测试"代替后面三件:');
+  lines.push('     a. 验证代码:pnpm -r typecheck && pnpm --filter @fcp/api test,贴原始输出;');
+  lines.push('     b. 验证输出:把你这轮产生的需求写进 docs/coordination/PENDING.json,跑 pnpm sync:inbox,提交生成物;');
+  lines.push(`     c. 反查收件箱:重读 INBOX-${login}.md,找出"开始时间晚于我这轮开工"的条目(别人在我干活期间提的),念给我听;`);
+  lines.push('     d. 检查解锁:看收件箱「谁在等你」一节,你做完的事有没有解除别人的 waiting_on,有就删掉它;');
+  lines.push('  6) 提 PR,并写明"已自测通过,请求评审"。');
   lines.push('');
-  lines.push('  完整版提示词(含收工检查、卡住时怎么办):docs/coordination/PROMPT-TO-AI.md');
+  lines.push('  完整版提示词(含收工检查、卡住时怎么办、以及"AI 跑偏了长什么样"):docs/coordination/PROMPT-TO-AI.md');
   lines.push('```');
   lines.push('');
   lines.push('> 完整模板(含收工提示词、卡住时的提示词、以及"AI 跑偏了长什么样"):');
