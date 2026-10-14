@@ -62,7 +62,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const applyAuth = useCallback(
-    (result: { user: UserSummary; families: FamilySummary[] }) => {
+    (result: { token?: string; user: UserSummary; families: FamilySummary[] }) => {
+      // Persist the token FIRST. Without this the session lives only in React state: register/login
+      // would look successful, then every authenticated call would go out with no Authorization
+      // header, answer 401, and bounce the user back to the login screen. Mock mode hides the whole
+      // problem because `api/mock.ts` never checks a token -- so this line only matters when the app
+      // is pointed at the real backend, which is exactly where it broke on 2026-10-13.
+      if (result.token !== undefined) setToken(result.token);
       setUser(result.user);
       setFamilies(result.families);
       setStatus('ready');

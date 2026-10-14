@@ -33,7 +33,7 @@
 | notify | `apps/api/src/notify` | 空闲 | — | — | — | H1-H8 | 微信模板消息 / 短信 / 红点 |
 | report | `apps/api/src/report` | 空闲 | — | — | — | I1-I6 | 贡献占比、月度报告 |
 | shared | `packages/shared` | 空闲 | — | — | — | — | **共享文件,改动前先在日志里声明** |
-| web-app | `apps/web` | **进行中** | 发起人(buzhunwanyouxi) | DSH | 2026-10-10 | P01-P19 | 前端骨架 + API 客户端 + 登录/建家/首页 |
+| web-app | `apps/web` | **进行中** | 发起人(buzhunwanyouxi) | DSH | 2026-10-10 | P01-P19 | 骨架 + API 客户端 + 登录/建家/首页 + **P12 邀请卡片与二维码(2026-10-13,已在真实后端点通)**。⚠️ **`test` 脚本仍是空壳,web 包零测试** —— 见 `PENDING.json` 的 `web-has-no-tests` |
 | infra | 根目录 / `.github` | **进行中** | 发起人(buzhunwanyouxi) | DSH | 2026-10-13 | 第 10 章 | CI、部署、备案;**含跨模块装配**(`apps/api/src/composition.ts` —— 谁和谁共享状态由它决定,见 ops log `2026-10-13-2200_W1-WIRE`) |
 | docs | `docs/` | 空闲 | — | — | — | — | 规则文档维护(改规则必须人类拍板) |
 

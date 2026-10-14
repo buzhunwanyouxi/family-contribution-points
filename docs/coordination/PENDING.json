@@ -37,19 +37,6 @@
       "note": "低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可"
     },
     {
-      "id": "frontend-use-invite-endpoint",
-      "title": "前端 P12 可以接 #10b 了(拿邀请码 + 出二维码)",
-      "to": [
-        "buzhunwanyouxi"
-      ],
-      "kind": "task",
-      "since": "2026-10-13T14:30:00Z",
-      "source": "docs/CONTRACTS.md#10b",
-      "action": "在 FamilyPage 里调用 GET /api/families/:fid/invite,把 qrPayload 渲染成二维码,并处理 role_not_allowed(非 owner/admin 时的提示)",
-      "needs": "AI 可直接开工",
-      "note": "后端已实现并有 6 个测试;前端此前只在注释里提到过这个路径,没有真正调用"
-    },
-    {
       "id": "family-unlock-for-frontend",
       "title": "family 模块合并后,前端可以切掉 Mock 走真实接口",
       "to": [
@@ -87,6 +74,19 @@
       "action": "知悉:所有'要人拍板'的事都靠 GitHub @ + 指派触发邮件;不要把协作需求只发在微信里,那等于没发",
       "needs": "知悉即可",
       "note": "GitHub 没有私信 API;微信/短信要另建常驻服务,暂不做"
+    },
+    {
+      "id": "web-has-no-tests",
+      "title": "web 包零测试,且没有『前端 × 真实后端』的冒烟脚本",
+      "to": [
+        "buzhunwanyouxi"
+      ],
+      "kind": "task",
+      "since": "2026-10-13T15:00:00Z",
+      "source": "apps/web/package.json",
+      "action": "给 web 包补测试基建(test 脚本现在是 echo 空壳;缺 jsdom / testing-library),并优先加一个真实后端冒烟脚本:起 API 后按 HTTP 跑注册→建家→邀请码→加入并断言状态码",
+      "needs": "AI 可直接开工",
+      "note": "★ 这不是洁癖:2026-10-13 发现前端从未持久化 token,导致真实后端模式下所有登录操作都 401 —— 226 个后端测试全部没抓到,因为它们在各自模块内部造数据;mock 模式也抓不到,因为 mock 不校验 token。前端 × 真实后端的交叉验证目前是空白"
     }
   ]
 }

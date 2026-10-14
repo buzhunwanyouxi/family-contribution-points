@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { AppShell } from '../components/AppShell';
+import { InviteCard } from '../components/InviteCard';
 import { api, ApiError } from '../api/client';
 import { useSession } from '../app/session';
 import { ROLE_LABEL, type MemberSummary } from '../api/types';
 
-/** P12 家庭页: member list + family switcher. Contribution charts come in W4 (I1-I6). */
+/** P12 家庭页: member list + family switcher + invite card (#10b). Charts come in W4 (I1-I6). */
 export function FamilyPage() {
   const { currentFamily, families, selectFamily, user } = useSession();
   const [members, setMembers] = useState<MemberSummary[]>([]);
@@ -76,16 +77,10 @@ export function FamilyPage() {
       </section>
 
       {currentFamily && (
-        <section className="card">
-          <h2>邀请家人加入</h2>
-          <p className="card-note">
-            把一个邀请码发给家人,他们注册后填进去就能加入。
-            <br />
-            <span className="card-note">
-              (邀请码展示与二维码将在 A2 完成后接上:GET /api/families/:fid/invite)
-            </span>
-          </p>
-        </section>
+        <InviteCard
+          familyId={currentFamily.id}
+          canShare={currentFamily.role === 'owner' || currentFamily.role === 'admin'}
+        />
       )}
 
       <section className="card">

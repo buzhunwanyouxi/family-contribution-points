@@ -56,6 +56,21 @@ export interface MeResult {
   families: FamilySummary[];
 }
 
+/**
+ * CONTRACTS #10b -- `GET /api/families/:fid/invite`.
+ *
+ * Only owner/admin may read it: the code is the family's front door, so a plain member asking for
+ * it gets `403 role_not_allowed` (NOT `not_a_member` -- they are a member, and saying otherwise
+ * would make them think the family disappeared).
+ */
+export interface FamilyInviteView {
+  inviteCode: string;
+  /** ISO-8601, or `null` when the family was created without an expiry. */
+  inviteExpireAt: string | null;
+  /** A URL a phone camera can act on directly: `.../join?code=<code>`. */
+  qrPayload: string;
+}
+
 export interface ErrorBody {
   /** stable machine code, e.g. `user_exists` / `invalid_credentials` / `validation_error` */
   error: string;

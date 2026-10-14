@@ -417,3 +417,57 @@ body {
   opacity: 0.85;
   z-index: 10;
 }
+
+/* ---------------------------------------------------------------- invite card (#10b, P12) */
+
+/*
+ * The code is shown one character per cell with a monospace, letter-spaced treatment so it is easy
+ * to read aloud over the phone ("K, 7, M, 2, Q, P") and hard to misread. Sized for a 320px-wide
+ * screen first.
+ */
+.invite-code {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 14px 0 10px;
+}
+
+.invite-code-char {
+  flex: 0 0 auto;
+  min-width: 38px;
+  padding: 10px 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  letter-spacing: 0;
+  user-select: all; /* long-press selects the whole code, for manual copying */
+}
+
+.qr-box {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0 6px;
+  min-height: 60px;
+}
+
+.qr-box img {
+  width: 220px;
+  height: 220px;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff; /* QR must stay dark-on-white for scanners, even in dark mode */
+  padding: 8px;
+}
+
+@media (max-width: 340px) {
+  .invite-code-char {
+    min-width: 32px;
+    font-size: 19px;
+  }
+}

@@ -7,6 +7,7 @@
  */
 import type {
   AuthResult,
+  FamilyInviteView,
   FamilyResult,
   FamilySummary,
   MemberSummary,
@@ -18,11 +19,24 @@ interface MockUser extends UserSummary {
   password: string;
 }
 
+/** CONTRACTS「邀请码规范」: 6 chars, alphabet without 0/1/O/I, 7-day TTL. */
+const INVITE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+const INVITE_TTL_DAYS = 7;
+
+function makeInviteCode(): string {
+  let code = '';
+  for (let i = 0; i < 6; i += 1) {
+    code += INVITE_ALPHABET[Math.floor(Math.random() * INVITE_ALPHABET.length)];
+  }
+  return code;
+}
+
 const state: {
   users: MockUser[];
   sessionUserId: string | null;
   families: FamilySummary[];
   members: Record<string, MemberSummary[]>;
+  invites: Record<string, FamilyInviteView>;
 } = {
   users: [
     {
@@ -53,6 +67,13 @@ const state: {
       { userId: 'u_bro', nickname: '哥哥', role: 'child', joinedAt: '2026-03-01T09:10:00.000Z' },
       { userId: 'u_didi', nickname: '弟弟', role: 'child', joinedAt: '2026-03-01T09:12:00.000Z' },
     ],
+  },
+  invites: {
+    f_demo: {
+      inviteCode: 'K7M2QP',
+      inviteExpireAt: new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000).toISOString(),
+      qrPayload: 'https://family-points.app/join?code=K7M2QP',
+    },
   },
 };
 
@@ -136,6 +157,13 @@ export async function createFamily(input: { name: string; timezone?: string }): 
   state.members[family.id] = [
     { userId: user.id, nickname: user.nickname, role: 'owner', joinedAt: new Date().toISOString() },
   ];
+  // #10b: a new family gets its code immediately, so the invite card is populated right away.
+  const inviteCode = makeInviteCode();
+  state.invites[family.id] = {
+    inviteCode,
+    inviteExpireAt: new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000).toISOString(),
+    qrPayload: `https://family-points.app/join?code=${inviteCode}`,
+  };
   return { family, membership: { id: 'm_new', role: 'owner', joinedAt: new Date().toISOString() } };
 }
 
@@ -170,6 +198,31 @@ export async function listFamilies(): Promise<{ families: FamilySummary[] }> {
 export async function members(familyId: string): Promise<{ members: MemberSummary[] }> {
   requireSession();
   return { members: state.members[familyId] ?? [] };
+}
+
+/**
+ * CONTRACTS #10b. Mirrors the backend's authorisation: only owner/admin may read the code, and a
+ * plain member gets the same `role_not_allowed` code so the UI path is exercised in mock mode too.
+ */
+export async function invite(familyId: string): Promise<FamilyInviteView> {
+  const user = requireSession();
+  const family = state.families.find((f) => f.id === familyId);
+  if (!family) throw new Error('你不是这个家庭的成员');
+  if (family.role !== 'owner' && family.role !== 'admin') {
+    const error = new Error('只有家庭创建者可以分享邀请码,请让家长发给你');
+    (error as Error & { code?: string }).code = 'role_not_allowed';
+    throw error;
+  }
+  const existing = state.invites[familyId];
+  if (existing) return existing;
+  const inviteCode = makeInviteCode();
+  const created: FamilyInviteView = {
+    inviteCode,
+    inviteExpireAt: new Date(Date.now() + INVITE_TTL_DAYS * 86_400_000).toISOString(),
+    qrPayload: `https://family-points.app/join?code=${inviteCode}`,
+  };
+  state.invites[familyId] = created;
+  return created;
 }
 
 /** Test seam: reset the mock between runs. */

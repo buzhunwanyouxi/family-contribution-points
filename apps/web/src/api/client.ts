@@ -169,6 +169,17 @@ export const api = {
       `/api/families/${encodeURIComponent(familyId)}/members`,
     );
   },
+
+  /** CONTRACTS #10b -- owner/admin only. A member asking gets 403 `role_not_allowed`. */
+  async invite(familyId: string): Promise<import('./types').FamilyInviteView> {
+    if (USE_MOCK) {
+      await wait();
+      return mock.invite(familyId);
+    }
+    return request<import('./types').FamilyInviteView>(
+      `/api/families/${encodeURIComponent(familyId)}/invite`,
+    );
+  },
 };
 
 type FamilySummaryList = import('./types').FamilySummary[];
