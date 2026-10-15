@@ -28,12 +28,35 @@ const CHECK_ONLY = process.argv.includes('--check');
 const KIND_LABEL = {
   task: '开工',
   decision: '等拍板',
+  'spec-gap': '规则缺口',
   review: '待评审',
   blocked: '被阻塞',
   'must-know': '必须知道',
 };
 
-const KIND_ORDER = ['decision', 'blocked', 'review', 'task', 'must-know'];
+// spec-gap 排在 decision 之后:两者都要人拍板,但 spec-gap 会改变"以后所有同类事情的做法"。
+const KIND_ORDER = ['decision', 'spec-gap', 'blocked', 'review', 'task', 'must-know'];
+
+/** 哪些 kind 是人拍板项(渲染时单独成节,并附上"AI 不得自行处置"的提醒)。 */
+const HUMAN_KINDS = ['decision', 'spec-gap'];
+
+const SPEC_GAP_STATUS = {
+  'pending-human': '待裁决',
+  adopted: '已采纳',
+  rejected: '已驳回',
+};
+
+const CHANGE_KIND_LABEL = { add: '新增', modify: '修改', remove: '删除' };
+
+const SPEC_GAP_REQUIRED = [
+  'hit_at',
+  'current_spec',
+  'proposed',
+  'trigger',
+  'evidence',
+  'change_kind',
+  'status',
+];
 
 /** 尽量拿到当前 commit,拿不到也不致命(容器/裸仓库里没有 git 也能跑)。 */
 function headSha() {
@@ -86,6 +109,7 @@ function loadLedger() {
 
 function validate(ledger) {
   const problems = [];
+  const warnings = [];
   const seen = new Set();
 
   for (const item of ledger.items) {
@@ -111,8 +135,105 @@ function validate(ledger) {
     if (item.to && !Array.isArray(item.to)) {
       problems.push(`${where} 的 to 必须是数组`);
     }
+    if (item.kind === 'spec-gap') validateSpecGap(item, where, problems, warnings);
   }
-  return problems;
+  return { problems, warnings };
+}
+
+/**
+ * spec-gap 专用校验:把 SPEC-GAP.md 里的"三条不对称"变成机械检查。
+ * 机制说明:docs/coordination/SPEC-GAP.md
+ */
+function validateSpecGap(item, where, problems, warnings) {
+  for (const field of SPEC_GAP_REQUIRED) {
+    if (!item[field]) problems.push(`${where} (spec-gap) 缺少必填字段 ${field}`);
+  }
+
+  // 不对称 2:只出提案,不出变更 —— 采纳权在人,needs 只能是"人拍板"
+  if (item.needs !== '人拍板') {
+    problems.push(
+      `${where} (spec-gap) 的 needs 必须是"人拍板"(当前:${JSON.stringify(item.needs ?? null)})` +
+        ' —— AI 可以提"规则不够用",但不能自己改规则,也不能把缺口派给 AI 开工',
+    );
+  }
+
+  if (item.status && !SPEC_GAP_STATUS[item.status]) {
+    problems.push(
+      `${where} (spec-gap) 的 status="${item.status}" 不是合法值(${Object.keys(SPEC_GAP_STATUS).join('/')})`,
+    );
+  }
+
+  // 不对称 3:必须留下触发证据 —— 不许写"我觉得应该这样"
+  for (const field of ['trigger', 'evidence']) {
+    if (typeof item[field] === 'string' && /(我觉得|我认为|建议改|应该改)/.test(item[field])) {
+      warnings.push(
+        `${where} (spec-gap) 的 ${field} 看起来是主观意见 —— ` +
+          '缺口必须指向一个真实发生过的失败案例,而不是"我觉得应该这样"',
+      );
+    }
+  }
+
+  // 不对称 1:只许新增,不许修改/删除 —— 风险不对称,所以 modify/remove 要多一层提醒
+  const CHANGE_ARRAY = { add: 'adds', modify: 'modifies', remove: 'removes' };
+  const want = CHANGE_ARRAY[item.change_kind];
+  if (!want) {
+    if (item.change_kind) {
+      problems.push(
+        `${where} (spec-gap) 的 change_kind="${item.change_kind}" 不是合法值(${Object.keys(CHANGE_ARRAY).join('/')})`,
+      );
+    }
+    return;
+  }
+  const list = item[want];
+  if (!Array.isArray(list) || list.length === 0) {
+    problems.push(`${where} (spec-gap) 的 change_kind="${item.change_kind}" 时,${want} 必须是非空数组`);
+  }
+  if (item.change_kind !== 'add') {
+    warnings.push(
+      `${where} (spec-gap) 要求"${CHANGE_KIND_LABEL[item.change_kind]}"既有规则 —— ` +
+        '注意这是三条不对称里风险最高的一类:改或删一条规则,会让所有依赖它的既有检查一起失效。' +
+        '新增最坏是漏检,改/删请务必权衡后再采纳',
+    );
+  }
+}
+
+/** 供 --check 的自检使用:制造一条假条目,验证真正的机制缺陷会被拦住。 */
+function selfTest() {
+  const fake = (over) => ({
+    id: 'selftest', title: 't', to: ['buzhunwanyouxi'], kind: 'spec-gap',
+    since: '2026-01-01T00:00:00Z', source: 'AGENTS.md', ...over,
+  });
+  const cases = [
+    ['缺 hit_at', { needs: '人拍板', status: 'pending-human', change_kind: 'add', adds: ['x'] }],
+    ['needs 不是人拍板', { hit_at: 'x', current_spec: 'x', proposed: 'x', trigger: 'x', evidence: 'x', change_kind: 'add', adds: ['x'], status: 'pending-human', needs: 'AI 可直接开工' }],
+    ['change_kind 非法', { hit_at: 'x', current_spec: 'x', proposed: 'x', trigger: 'x', evidence: 'x', change_kind: 'rewrite', needs: '人拍板', status: 'pending-human' }],
+    ['adds 为空', { hit_at: 'x', current_spec: 'x', proposed: 'x', trigger: 'x', evidence: 'x', change_kind: 'add', adds: [], needs: '人拍板', status: 'pending-human' }],
+    ['status 非法', { hit_at: 'x', current_spec: 'x', proposed: 'x', trigger: 'x', evidence: 'x', change_kind: 'add', adds: ['x'], needs: '人拍板', status: 'done' }],
+  ];
+  let ok = true;
+  for (const [name, over] of cases) {
+    const p = [];
+    validateSpecGap(fake(over), 'selftest', p, []);
+    if (p.length === 0) {
+      console.error(`  ✗ 自检失败:【${name}】本应被拦下,却通过了`);
+      ok = false;
+    } else {
+      console.log(`  ✓ 拦住:${name}`);
+    }
+  }
+  const good = [];
+  validateSpecGap(
+    fake({ hit_at: 'x', current_spec: 'x', proposed: 'x', trigger: 'x', evidence: 'x',
+           change_kind: 'add', adds: ['x'], needs: '人拍板', status: 'pending-human' }),
+    'selftest', good, [],
+  );
+  if (good.length) {
+    console.error(`  ✗ 自检失败:合法条目被误杀 → ${good.join('; ')}`);
+    ok = false;
+  } else {
+    console.log('  ✓ 合法条目未被误杀');
+  }
+  return ok;
 }
 
 function itemsFor(login, items) {
@@ -127,6 +248,63 @@ function itemsFor(login, items) {
 /** 某人是否出现在这条待办的 waiting_on 里(登录名或其显示名都算,但提醒用登录名) */
 function itemNamesWaitingOn(item, login) {
   return (item.waiting_on ?? []).some((w) => String(w).toLowerCase() === login.toLowerCase());
+}
+
+/** 普通条目(task / review / blocked / must-know / decision)的渲染。 */
+function renderKindItem(item, kind, n, lines) {
+  lines.push(`### ${n}. ${item.title}`);
+  lines.push('');
+  lines.push(`- **${KIND_LABEL[kind]}**:${item.action ?? '(见 source)'}`);
+  lines.push(`- **从此刻起有效**:${item.since}`);
+  lines.push(`- **权威出处**:${item.source}`);
+  if (item.needs) lines.push(`- **需要谁**:${item.needs}`);
+  if (Array.isArray(item.waiting_on) && item.waiting_on.length) {
+    lines.push(`- **要等**:${item.waiting_on.join('、')}`);
+  }
+  if (item.note) lines.push(`- **备注**:${item.note}`);
+  lines.push('');
+}
+
+/**
+ * spec-gap 的渲染。人拍板项,单独成节并强制附上三条不对称的提醒。
+ * 机制说明:docs/coordination/SPEC-GAP.md
+ */
+function renderSpecGap(item, n, lines) {
+  const status = SPEC_GAP_STATUS[item.status] ?? item.status;
+  lines.push(`### ${n}. 🧩 ${item.title}`);
+  lines.push('');
+  lines.push(`- **规则缺口**:${item.action ?? '(见 source)'}`);
+  lines.push(`- **撞到它的时刻**:${item.hit_at ?? '(未填)'}  ·  **登记时间**:${item.since}`);
+  lines.push(`- **证据出处**:${item.source}`);
+  lines.push(`- **裁决状态**:${status}`);
+
+  if (item.current_spec) {
+    lines.push('');
+    lines.push(`**现行规则**(它没覆盖到的):${item.current_spec}`);
+  }
+  if (item.trigger) lines.push(`**触发它的真实事件**:${item.trigger}`);
+  if (item.evidence) lines.push(`**可核对的证据**:${item.evidence}`);
+
+  lines.push('');
+  lines.push(`**建议怎么改**(${CHANGE_KIND_LABEL[item.change_kind] ?? item.change_kind}):${item.proposed}`);
+  const detail = { add: item.adds, modify: item.modifies, remove: item.removes }[item.change_kind];
+  if (Array.isArray(detail) && detail.length) {
+    for (const d of detail) lines.push(`  - ${d}`);
+  }
+
+  if (item.change_kind !== 'add') {
+    lines.push('');
+    lines.push(
+      '> ⚠️ 这条要求**改或删**既有规则 —— 三条不对称里风险最高的一类:改/删会让所有依赖它的既有检查一起失效。新增最坏是漏检,采纳前请务必权衡。',
+    );
+  }
+
+  lines.push('');
+  lines.push('> ⚠️ **AI 不得自行处置这一条。** 你只能:①采纳(改权威文档 → 把 status 改成 `adopted` → 在 ops 日志记一笔「哪条规则、谁改的、何时改的」);');
+  lines.push('> ②驳回(把 status 改成 `rejected`,**并写明理由** —— 否则下一个 AI 会重新提一遍,而它没有错);③搁置(保留 `pending-human`,在 `note` 里说明为什么不现在处理)。');
+
+  if (item.note) lines.push(`> 备注:${item.note}`);
+  lines.push('');
 }
 
 function renderInbox(login, items, sha) {
@@ -155,25 +333,43 @@ function renderInbox(login, items, sha) {
     lines.push('或去 [`ROADMAP.md`](../ROADMAP.md) 看有没有标记为"待认领"的行。');
     lines.push('');
   } else {
+    // 人拍板项(decision / spec-gap)单独成节,并附上"AI 不得自行处置"的提醒。
+    const humanItems = mine.filter((i) => HUMAN_KINDS.includes(i.kind));
+    const aiItems = mine.filter((i) => !HUMAN_KINDS.includes(i.kind));
     let n = 0;
-    for (const kind of KIND_ORDER) {
-      const group = mine.filter((i) => i.kind === kind);
-      if (group.length === 0) continue;
-      lines.push(`## ${KIND_LABEL[kind]}(${group.length})`);
+
+    if (humanItems.length) {
+      lines.push('## ⚠️ 需要人拍板(这些不是 AI 的任务)');
       lines.push('');
-      for (const item of group) {
-        n += 1;
-        lines.push(`### ${n}. ${item.title}`);
-        lines.push('');
-        lines.push(`- **${KIND_LABEL[kind]}**:${item.action ?? '(见 source)'}`);
-        lines.push(`- **从此刻起有效**:${item.since}`);
-        lines.push(`- **权威出处**:${item.source}`);
-        if (item.needs) lines.push(`- **需要谁**:${item.needs}`);
-        if (Array.isArray(item.waiting_on) && item.waiting_on.length) {
-          lines.push(`- **要等**:${item.waiting_on.join('、')}`);
+      lines.push('下面这些**必须由人来决定**,AI 不得自行处置、不得代改:');
+      lines.push('');
+      lines.push('- `decision` — 就这件事做个选择,一次性。');
+      lines.push('- `spec-gap` — 规则该改了,**会改变以后所有同类事情的做法**。AI 只能提提案,采纳权在人。');
+      lines.push('');
+      for (const kind of HUMAN_KINDS) {
+        for (const item of humanItems.filter((i) => i.kind === kind)) {
+          n += 1;
+          if (kind === 'spec-gap') renderSpecGap(item, n, lines);
+          else renderKindItem(item, kind, n, lines);
         }
-        if (item.note) lines.push(`- **备注**:${item.note}`);
+      }
+      lines.push('---');
+      lines.push('');
+    }
+
+    if (aiItems.length) {
+      if (humanItems.length) {
+        lines.push('## 交给 AI 执行');
         lines.push('');
+      }
+      for (const kind of KIND_ORDER) {
+        if (HUMAN_KINDS.includes(kind)) continue;
+        const group = aiItems.filter((i) => i.kind === kind);
+        if (group.length === 0) continue;
+        for (const item of group) {
+          n += 1;
+          renderKindItem(item, kind, n, lines);
+        }
       }
     }
   }
@@ -210,7 +406,7 @@ function renderInbox(login, items, sha) {
   lines.push('2. **不要总结成一句话**:出处链接就是他的核对依据,总结会把它丢掉。');
   lines.push('3. 等你确认后再开始干活。');
   lines.push('');
-  lines.push('## 收工时你应该做的(四件不同的事,别混为一谈)');
+  lines.push('## 收工时你应该做的(五件不同的事,别混为一谈)');
   lines.push('');
   lines.push('| # | 验证什么 | 怎么做 |');
   lines.push('|---|---|---|');
@@ -221,6 +417,24 @@ function renderInbox(login, items, sha) {
     '那是别人**在你干活期间**新提的需求。逐条念给使用者听,判断要不要返工 |');
   lines.push('| ④ | **检查解锁** | 看上面的「谁在等你」一节:你做完的事有没有解除别人的 `waiting_on`?' +
     '有就去 `PENDING.json` 把它删掉 —— **否则对方不知道已经解锁** |');
+  lines.push('| ⑤ | **记录规则缺口** | 这一轮有没有撞到"规则不够用"?' +
+    '**有** → 按 [`SPEC-GAP.md`](SPEC-GAP.md) 提一条 `kind: spec-gap`(只提提案,**不得自行改规则**);' +
+    '**没有** → 在 ops 日志里写"无" |');
+  lines.push('');
+  lines.push('### ⑤ 的判据(别搞错)');
+  lines.push('');
+  lines.push('| 情况 | 该记成什么 |');
+  lines.push('|---|---|');
+  lines.push('| 规则**没覆盖**一类情况 / 规则**写得笼统**导致你差点理解错 / **同一类问题被问第二次** | ' +
+    '`kind: spec-gap` |');
+  lines.push('| 发现了一个 bug | `kind: task`,指给模块负责人 |');
+  lines.push('| 需要别人做个决定 | `kind: decision` |');
+  lines.push('| 不知道怎么做 | `kind: blocked`,说明卡在哪 |');
+  lines.push('| **规则很清楚,只是它让你多做了事** | **什么都不记** —— 这是纪律问题,不是规则问题 |');
+  lines.push('');
+  lines.push('> ⚠️ **被约束者不得修改约束。** 你只能**记录**缺口,采纳权在人。' +
+    '`needs` 必须是"人拍板",`change_kind` 只允许 `add`(改/删既有规则风险高一个量级,要人特别权衡);' +
+    '`trigger` / `evidence` 必须指向**真实发生过的失败案例**,不能是"我觉得应该这样"。');
   lines.push('');
   lines.push('> ⚠️ **③ 和 ④ 是反方向的两次检查,都不能省**:');
   lines.push('> ③ 看"**别人给我加了什么**"(新增条目);④ 看"**我给别人解除了什么**"(`waiting_on` 消失)。');
@@ -298,8 +512,13 @@ function renderStatus(ledger, sha) {
 }
 
 function main() {
+  if (process.argv.includes('--self-test')) {
+    console.log('机制自检:注入 5 类坏 spec-gap + 1 条合法条目,验证拦得住、不误杀');
+    process.exit(selfTest() ? 0 : 1);
+  }
+
   const ledger = loadLedger();
-  const problems = validate(ledger);
+  const { problems, warnings } = validate(ledger);
   const sha = headSha();
   const logins = new Set();
   for (const item of ledger.items) for (const l of item.to ?? []) logins.add(l);
@@ -315,10 +534,16 @@ function main() {
     console.error('一致性检查发现问题:');
     for (const p of problems) console.error(`  - ${p}`);
     console.error('\n请修正 docs/coordination/PENDING.json 后重试。');
-    if (CHECK_ONLY) process.exit(1);
-    console.error('(仍会写出收件箱,便于人工查看,但退出码为 1)');
-  } else {
+  }
+  if (warnings.length) {
+    console.error('提醒(不阻断,但请人工看一眼):');
+    for (const w of warnings) console.error(`  - ${w}`);
+  }
+
+  if (!problems.length && !warnings.length) {
     console.log('一致性检查通过');
+  } else if (!problems.length) {
+    console.log('一致性检查通过(有提醒,见上)');
   }
 
   if (!CHECK_ONLY) {
@@ -328,7 +553,9 @@ function main() {
       console.log(`  写出 ${file.replace(ROOT + '\\', '').replace(ROOT + '/', '')}`);
     }
   }
-  console.log(`共 ${ledger.items.length} 条待办,${logins.size} 个人的收件箱${CHECK_ONLY ? '(仅检查,未写入)' : ''}`);
+  console.log(
+    `共 ${ledger.items.length} 条待办,${logins.size} 个人的收件箱${CHECK_ONLY ? '(仅检查,未写入)' : ''}`,
+  );
   process.exit(problems.length ? 1 : 0);
 }
 
