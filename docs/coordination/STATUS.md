@@ -2,12 +2,12 @@
 
 > ⚠️ **本文件由 `scripts/sync-inbox.mjs` 自动生成,不要手工编辑。**
 
-**最后生成**:2026-10-15 19:05 @ `dfe070f`  ·  共 7 条待办
+**最后生成**:2026-10-15 19:06 @ `85486f3`  ·  共 5 条待办
 
 | 人 | 待办数 | 收件箱 |
 |---|---|---|
 | MIAO98J | 1 | [INBOX-MIAO98J.md](INBOX-MIAO98J.md) |
-| buzhunwanyouxi | 5 | [INBOX-buzhunwanyouxi.md](INBOX-buzhunwanyouxi.md) |
+| buzhunwanyouxi | 3 | [INBOX-buzhunwanyouxi.md](INBOX-buzhunwanyouxi.md) |
 | sun-521-s | 1 | [INBOX-sun-521-s.md](INBOX-sun-521-s.md) |
 
 ## 全部条目
@@ -19,5 +19,3 @@
 | `family-user-directory-port` | 开工 | family 应改为依赖 UserDirectoryPort,而不是自己维护一份用户表 | MIAO98J | 2026-10-13T13:56:00Z | apps/api/src/composition.ts |
 | `notify-add-email-channel` | 必须知道 | 需求通知目前只有邮件一条通道(没有微信/短信/私信) | buzhunwanyouxi | 2026-10-12T04:12:00Z | docs/coordination/README.md#通道边界 |
 | `web-has-no-tests` | 开工 | web 包零测试,且没有『前端 × 真实后端』的冒烟脚本 | buzhunwanyouxi | 2026-10-13T15:00:00Z | apps/web/package.json |
-| `specgap-ai-may-not-edit-own-spec` | 规则缺口 | 规则缺口:项目没有明文禁止『AI 修改自己的 spec』——目前只挡了『AI 发明产品规则』 | buzhunwanyouxi | 2026-10-13T22:00:00Z | docs/coordination/SPEC-GAP.md#二唯一的红线被约束者不得修改约束 |
-| `specgap-xcheck-unmeasured-dimensions` | 规则缺口 | 规则缺口:交接模板缺少『我没测什么』字段,导致盲区只能靠人追问才暴露 | buzhunwanyouxi | 2026-10-13T22:00:00Z | docs/ai-logs/README.md |

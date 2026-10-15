@@ -58,13 +58,46 @@ const SPEC_GAP_REQUIRED = [
   'status',
 ];
 
-/** 尽量拿到当前 commit,拿不到也不致命(容器/裸仓库里没有 git 也能跑)。 */
+/**
+ * 尽量拿到当前 commit,拿不到也不致命。
+ *
+ * 两条路径:
+ *   1. 调 git(SHA 最准,但某些沙箱/受限环境禁止 spawn 子进程,会 EPERM);
+ *   2. 直接读 .git/HEAD 与它指向的 ref 文件 —— **不 spawn 任何进程**,
+ *      因此在上面的环境里仍能拿到 SHA,而不是悄悄退化成 unknown。
+ *
+ * 两条都失败才返回 unknown(裸仓库 / 无 .git / 真的没有 git)。
+ */
 function headSha() {
+  const short = (sha) => (sha ? sha.slice(0, 7) : null);
   try {
     return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).trim();
   } catch {
-    return 'unknown';
+    /* 落到下面的文件直读 */
   }
+  try {
+    const head = readFileSync(join(ROOT, '.git', 'HEAD'), 'utf8').trim();
+    if (/^[0-9a-f]{40}$/i.test(head)) return short(head); // detached HEAD
+    const m = head.match(/^ref:\s*(.+)$/);
+    if (m) {
+      const refPath = join(ROOT, '.git', m[1]);
+      if (existsSync(refPath)) {
+        const sha = readFileSync(refPath, 'utf8').trim();
+        if (/^[0-9a-f]{40}$/i.test(sha)) return short(sha);
+      }
+      // 松散引用不存在时,可能在 packed-refs 里
+      const packed = join(ROOT, '.git', 'packed-refs');
+      if (existsSync(packed)) {
+        const line = readFileSync(packed, 'utf8')
+          .split('\n')
+          .find((l) => l.endsWith(' ' + m[1]));
+        if (line) return short(line.split(' ')[0]);
+      }
+    }
+  } catch {
+    /* 落空 */
+  }
+  return 'unknown';
 }
 
 function localIso() {
@@ -455,12 +488,17 @@ function renderInbox(login, items, sha) {
   lines.push('  3) 按 AGENTS.md 第四节填好工作计划,说明我之后怎么验证,然后停下来等我确认;');
   lines.push('  4) 我确认后再干活。如果要认领模块,**先把 OWNERS.md 的认领改动单独提交**,再开始写代码');
   lines.push('     (否则两个人可能同时认领同一个模块,白干一场);');
-  lines.push('  5) 收工时要分别做四件事,不要用"跑测试"代替后面三件:');
+  lines.push('  5) 收工时要分别做五件事,不要用"跑测试"代替后面四件:');
   lines.push('     a. 验证代码:pnpm -r typecheck && pnpm --filter @fcp/api test,贴原始输出;');
   lines.push('     b. 验证输出:把你这轮产生的需求写进 docs/coordination/PENDING.json,跑 pnpm sync:inbox,提交生成物;');
   lines.push(`     c. 反查收件箱:重读 INBOX-${login}.md,找出"开始时间晚于我这轮开工"的条目(别人在我干活期间提的),念给我听;`);
   lines.push('     d. 检查解锁:看收件箱「谁在等你」一节,你做完的事有没有解除别人的 waiting_on,有就删掉它;');
+  lines.push('     e. 记录规则缺口:这一轮有没有撞到"规则不够用"?有 → 按 docs/coordination/SPEC-GAP.md 提一条 kind:spec-gap');
+  lines.push('        (只提提案,不得自行改规则;needs 必须是"人拍板");没有 → 在 ops 日志里写"无";');
   lines.push('  6) 提 PR,并写明"已自测通过,请求评审"。');
+  lines.push('');
+  lines.push('  ⚠️ 注意:AGENTS.md 的规则、PROJECT_GUIDE、CONTRACTS、日志模板、协调机制文件都是');
+  lines.push('     约束你的东西,不是你的工作对象。撞到"规则不够用"只能记录(第 5 步 e),不许自己改。');
   lines.push('');
   lines.push('  完整版提示词(含收工检查、卡住时怎么办、以及"AI 跑偏了长什么样"):docs/coordination/PROMPT-TO-AI.md');
   lines.push('```');
@@ -511,6 +549,42 @@ function renderStatus(ledger, sha) {
   return lines.join('\n');
 }
 
+/**
+ * 收工清单在三处各有一份副本,必须说的是同一件事。
+ *
+ * 这不是洁癖:2026-10-13 修「自测」歧义时**只改了长版**,收件箱里那份短提示词仍然带着旧写法;
+ * 2026-10-14 加第 13 步(记录规则缺口)时**只改了收件箱模板**,PROMPT-TO-AI.md 的收工清单又漏了。
+ * 同一个错误犯两次,说明靠"我记得还有一处"是不可靠的 —— 改成机器检查。
+ *
+ * 只报警不失败(问题的严重度不足以拦住提交),但会打印出来。
+ */
+const WRAP_UP_STEPS = ['验证代码', '验证输出', '反查收件箱', '检查解锁', '记录规则缺口'];
+
+function checkWrapUpPromptConsistency(warnings) {
+  const copies = [
+    ['收件箱模板(scripts/sync-inbox.mjs 内的短提示词)', 'scripts/sync-inbox.mjs'],
+    ['长版提示词(docs/coordination/PROMPT-TO-AI.md)', 'docs/coordination/PROMPT-TO-AI.md'],
+    ['固定动作表(AGENTS.md)', 'AGENTS.md'],
+  ];
+
+  for (const [label, rel] of copies) {
+    const file = join(ROOT, rel);
+    if (!existsSync(file)) {
+      warnings.push(`${label} 不存在,无法核对收工清单一致性:${rel}`);
+      continue;
+    }
+    const text = readFileSync(file, 'utf8');
+    const missing = WRAP_UP_STEPS.filter((step) => !text.includes(step));
+    if (missing.length) {
+      warnings.push(
+        `${label} 的收工清单缺 ${missing.length} 项(${missing.join('、')})—— ` +
+          `完整清单共 ${WRAP_UP_STEPS.length} 项:${WRAP_UP_STEPS.join(' / ')}。` +
+          '改了其中一处请同步其余副本(已有两次漏改记录)',
+      );
+    }
+  }
+}
+
 function main() {
   if (process.argv.includes('--self-test')) {
     console.log('机制自检:注入 5 类坏 spec-gap + 1 条合法条目,验证拦得住、不误杀');
@@ -519,6 +593,7 @@ function main() {
 
   const ledger = loadLedger();
   const { problems, warnings } = validate(ledger);
+  checkWrapUpPromptConsistency(warnings);
   const sha = headSha();
   const logins = new Set();
   for (const item of ledger.items) for (const l of item.to ?? []) logins.add(l);

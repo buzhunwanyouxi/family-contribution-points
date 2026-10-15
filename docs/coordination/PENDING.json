@@ -31,7 +31,8 @@
     "           / change_kind(add|modify|remove) + 对应的 adds|modifies|removes",
     "           / needs(只能是'人拍板') / status(pending-human|adopted|rejected)",
     "  不是缺口  '规则覆盖了我'不是缺口,'规则没覆盖一类情况'才是。",
-    "           若理由只是'这条规则让我多做了事',请什么都不要记 —— 那是纪律问题。"
+    "           若理由只是'这条规则让我多做了事',请什么都不要记 —— 那是纪律问题。",
+    "kind=spec-gap 被裁决之后:采纳 → 移入 docs/coordination/SPEC-GAP-LOG.md 并从本文件删除;驳回 → 留在本文件、status 改 rejected 并写明理由(否则下一个 AI 会重新提一遍,而它没有错)。"
   ],
   "people": [
     "buzhunwanyouxi",
@@ -103,58 +104,6 @@
       "action": "给 web 包补测试基建(test 脚本现在是 echo 空壳;缺 jsdom / testing-library),并优先加一个真实后端冒烟脚本:起 API 后按 HTTP 跑注册→建家→邀请码→加入并断言状态码",
       "needs": "AI 可直接开工",
       "note": "★ 这不是洁癖:2026-10-13 发现前端从未持久化 token,导致真实后端模式下所有登录操作都 401 —— 226 个后端测试全部没抓到,因为它们在各自模块内部造数据;mock 模式也抓不到,因为 mock 不校验 token。前端 × 真实后端的交叉验证目前是空白"
-    },
-    {
-      "id": "specgap-ai-may-not-edit-own-spec",
-      "title": "规则缺口:项目没有明文禁止『AI 修改自己的 spec』——目前只挡了『AI 发明产品规则』",
-      "to": [
-        "buzhunwanyouxi"
-      ],
-      "kind": "spec-gap",
-      "since": "2026-10-13T22:00:00Z",
-      "hit_at": "2026-10-13T22:00:00Z",
-      "source": "docs/coordination/SPEC-GAP.md#二唯一的红线被约束者不得修改约束",
-      "current_spec": "AGENTS.md 二、硬性禁令(现有 7 条):禁令 1 只覆盖『禁止自己发明产品规则』;禁令 5 只覆盖『禁止动别人声明为进行中的模块』;三、每轮工作的固定动作共 12 步,没有一条要求记录规则缺口",
-      "proposed": "① 禁令区新增第 8 条:禁止 AI 修改约束自己的规则(AGENTS.md / PROJECT_GUIDE / CONTRACTS / ai-logs 模板 / 本账本的字段约定);要改只能提 spec-gap。② 待办账本新增第四种类型 spec-gap 与配套字段。③ 每轮工作的固定动作末尾新增第 13 步:本轮撞到规则缺口了吗?是→提一条 spec-gap;否→写『无』",
-      "trigger": "两处真实缺口:10-13 发现收工『自测』没覆盖『反查收件箱』;10-12 发现『认领』只是本地标记、不构成锁(该标记何时对他人可见从未定义)。两次都是人想出来的,AI 撞到时只能默默绕过或自行改规则 —— 后者会让约束衰减到零",
-      "evidence": "docs/ai-logs/ops/2026-10-13-2000_W1-HUB_coordination-hub.md 第 10 节『更正说明』:自测只指 typecheck+test,整个机制没有任何地方要求 AI 在收工时重读收件箱;docs/ai-logs/ops/2026-10-12-2030_W1-REVIEW_two-pr-merge.md 第 5 节风险 1:两人都按契约实现仍撞 4 个共享文件冲突",
-      "change_kind": "add",
-      "adds": [
-        "AGENTS.md 二、硬性禁令 新增第 8 条:禁止 AI 修改约束自己的规则",
-        "AGENTS.md 三、每轮工作的固定动作 新增第 13 步:记录规则缺口",
-        "PENDING.json 新增 kind=spec-gap 与配套字段(已在本次提交中加入)"
-      ],
-      "modifies": [],
-      "removes": [],
-      "needs": "人拍板",
-      "status": "pending-human",
-      "action": "请裁决这条缺口是否成立。成立 → 把上面三条写进 AGENTS.md(禁令区、固定动作区),然后把本条的 status 改成 adopted 并在 ops 日志记一笔;不成立 → 把 status 改成 rejected 并写明理由(否则下一个 AI 会重新提一遍,而它没有错)",
-      "note": "★ 本条**故意指向自己**:它要求的就是『让 AI 能提缺口、但不能自己改规则』这条规则本身。在此之前,『AI 可以记录缺口』这件事在我们仓库里没有任何位置 —— 它要么被默默绕过,要么变成自行改规则。只有人采纳之后,这个提议才算生效。"
-    },
-    {
-      "id": "specgap-xcheck-unmeasured-dimensions",
-      "title": "规则缺口:交接模板缺少『我没测什么』字段,导致盲区只能靠人追问才暴露",
-      "to": [
-        "buzhunwanyouxi"
-      ],
-      "kind": "spec-gap",
-      "since": "2026-10-13T22:00:00Z",
-      "hit_at": "2026-10-13T22:00:00Z",
-      "source": "docs/ai-logs/README.md",
-      "current_spec": "docs/ai-logs/README.md 的 ops 日志模板第 7 节『给下一个接手者的交接建议』—— 该节要求写清『这套东西怎么改』与『下一轮该做什么』,但没有要求声明『本轮没有验证哪些维度』;所有字段都是在描述『我测了什么』",
-      "proposed": "ops 日志模板新增一个必填小节『本轮未验证的维度』:逐条列出『我排除了哪些维度 + 依据』,以及『哪些维度我根本没测』。并加一条校验:声称『已排除』却没有依据的条目直接拦下",
-      "trigger": "2026-10-13 发现前端从未持久化 token,导致真实后端模式下所有登录操作都 401 —— 而 226 个后端测试全部通过。测试覆盖的维度(模块内部逻辑)与真实链路(parent 包 → 子包 → 真实鉴权)不是同一个维度,但没有任何地方记录『真实链路这一维我没测』",
-      "evidence": "PENDING.json 条目 web-has-no-tests 的 note:『226 个后端测试全部没抓到,因为它们在各自模块内部造数据;mock 模式也抓不到,因为 mock 不校验 token』",
-      "change_kind": "add",
-      "adds": [
-        "docs/ai-logs/README.md ops 模板 新增必填小节『本轮未验证的维度』:每条写清『排除了什么 + 依据』或『根本没测什么』"
-      ],
-      "modifies": [],
-      "removes": [],
-      "needs": "人拍板",
-      "status": "pending-human",
-      "action": "请裁决。成立 → 写进 docs/ai-logs/README.md 模板,并把本条标为 adopted;不成立 → 标为 rejected 并写明理由",
-      "note": "本条的判据:『已排除但没有依据』比『承认没排除』更危险 —— 前者让人以为覆盖了,后者至少把盲区摆在明面上。风险不对称,所以值得一个必填字段。"
     }
   ]
 }
