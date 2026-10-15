@@ -3,17 +3,17 @@
 > ⚠️ **本文件由 `scripts/sync-inbox.mjs` 自动生成,不要手工编辑。**
 > 要新增/移除待办,请改 [`PENDING.json`](PENDING.json);要改权威内容,请改 `source` 指向的那份文档。
 
-**最后生成**:2026-10-15 19:49 @ `6070db8`  ·  **你现在必须知道的**:1 件被阻塞 · 2 件必须知道
+**最后生成**:2026-10-15 20:14 @ `7fb78b6`  ·  **你现在必须知道的**:1 件被阻塞 · 2 件必须知道
 
 ---
 
-### 1. CI 流水线已写好但推不上去:令牌缺 workflow 权限
+### 1. 令牌缺 workflow 权限,4 个提交(含积分查询与证据上传两个已完成的接口)推不上去
 
-- **被阻塞**:给令牌加权限,二选一:① 现有经典令牌去 https://github.com/settings/tokens 勾上 workflow 并 Update(用完可取消);② 建一个只授权本仓库的细粒度令牌(Workflows: Read and write)。任选其一后告诉我,我一条命令把 ci.yml 推上去
+- **被阻塞**:给令牌加权限,二选一:① 现有经典令牌去 https://github.com/settings/tokens 勾上 workflow 并 Update(用完可取消);② 建一个只授权本仓库的细粒度令牌(Contents + Workflows 读写)。任选其一后告诉我,我一条命令把 4 个提交推上去
 - **从此刻起有效**:2026-10-15T11:52:00Z
 - **权威出处**:docs/ai-logs/ops/2026-10-15-1950_W1-CI_pipeline.md#★-阻塞github-不允许带-repo-权限的经典令牌推送-workflow-文件
 - **需要谁**:人拍板
-- **备注**:★ 只有人能解:GitHub 明确拒绝用不带 workflow 权限的令牌创建/更新 .github/workflows/** 下的文件;API 通道同样被挡(建 tree 时 404),没有绕路。ci.yml 已写好并在本机逐条验证过它的 5 道关卡
+- **备注**:★ 只有人能解:GitHub 拒绝用不带 workflow 权限的令牌创建/更新 .github/workflows/** 下的文件,API 通道同样被挡(建 tree 时 404),没有绕路。原本只挡住 ci.yml,现在**连带挡住 3 个已完成的提交**:#15 积分查询、#10 证据上传、以及对应的日志与契约更新 —— 它们本可以与 ci.yml 无关地先推上去,但为保持提交历史完整(见 ops 日志 W1-MEDIA-API 第 5 节),我选择一起等。本机验证:api 20 文件 275 用例 / web 2 文件 13 用例全过,3 包 typecheck Done
 
 ### 2. 需求通知目前只有邮件一条通道(没有微信/短信/私信)
 

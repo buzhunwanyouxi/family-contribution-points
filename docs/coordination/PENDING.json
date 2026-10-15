@@ -94,16 +94,17 @@
     },
     {
       "id": "ci-needs-workflow-scope",
-      "title": "CI 流水线已写好但推不上去:令牌缺 workflow 权限",
+      "title": "令牌缺 workflow 权限,4 个提交(含积分查询与证据上传两个已完成的接口)推不上去",
       "to": [
         "buzhunwanyouxi"
       ],
       "kind": "blocked",
       "since": "2026-10-15T11:52:00Z",
       "source": "docs/ai-logs/ops/2026-10-15-1950_W1-CI_pipeline.md#★-阻塞github-不允许带-repo-权限的经典令牌推送-workflow-文件",
-      "action": "给令牌加权限,二选一:① 现有经典令牌去 https://github.com/settings/tokens 勾上 workflow 并 Update(用完可取消);② 建一个只授权本仓库的细粒度令牌(Workflows: Read and write)。任选其一后告诉我,我一条命令把 ci.yml 推上去",
+      "action": "给令牌加权限,二选一:① 现有经典令牌去 https://github.com/settings/tokens 勾上 workflow 并 Update(用完可取消);② 建一个只授权本仓库的细粒度令牌(Contents + Workflows 读写)。任选其一后告诉我,我一条命令把 4 个提交推上去",
       "needs": "人拍板",
-      "note": "★ 只有人能解:GitHub 明确拒绝用不带 workflow 权限的令牌创建/更新 .github/workflows/** 下的文件;API 通道同样被挡(建 tree 时 404),没有绕路。ci.yml 已写好并在本机逐条验证过它的 5 道关卡"
+      "note": "★ 只有人能解:GitHub 拒绝用不带 workflow 权限的令牌创建/更新 .github/workflows/** 下的文件,API 通道同样被挡(建 tree 时 404),没有绕路。原本只挡住 ci.yml,现在**连带挡住 3 个已完成的提交**:#15 积分查询、#10 证据上传、以及对应的日志与契约更新 —— 它们本可以与 ci.yml 无关地先推上去,但为保持提交历史完整(见 ops 日志 W1-MEDIA-API 第 5 节),我选择一起等。本机验证:api 20 文件 275 用例 / web 2 文件 13 用例全过,3 包 typecheck Done",
+      "blocked_since": "2026-10-15T11:52:00Z"
     }
   ]
 }
