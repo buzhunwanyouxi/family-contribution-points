@@ -14,6 +14,7 @@ import { scoringRoutes } from './scoring.js';
 import { registerAuth } from './auth.js';
 import { registerFamily } from './family.js';
 import { registerPoints } from './points.js';
+import { registerMedia } from './media.js';
 import { createAppServices } from '../composition.js';
 import type { AppServices } from '../composition.js';
 
@@ -64,9 +65,11 @@ export async function registerRoutes(
   // they are **forwarded**, never recomputed here.
   await registerPoints(app, { repository: services.familyRepository });
 
-  // lane C / media (W3-01) -- path frozen in CONTRACTS #10:
-  //   POST /api/families/:fid/instances/:iid/proof
-  // Uncomment once apps/api/src/routes/media.ts exists:
-  // import { mediaRoutes } from './media.js';
-  // await app.register(mediaRoutes, { prefix: '/api' });
+  // lane C / media (W1-F) -- POST /api/families/:fid/instances/:iid/proof (CONTRACTS #10).
+  // Ordering matters twice over here: it needs `app.requireAuth` from registerAuth(), AND it
+  // registers `@fastify/multipart` on this same instance so the upload route can see the parser.
+  await registerMedia(app, {
+    service: services.mediaService,
+    repository: services.familyRepository,
+  });
 }

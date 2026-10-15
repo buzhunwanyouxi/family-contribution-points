@@ -37,6 +37,12 @@ import type { InMemoryFamilyRepository } from './family/repository.js';
 import type { FamilyRepository } from './family/types.js';
 import { createFamilyService } from './family/service.js';
 import type { FamilyService } from './family/index.js';
+import { createInMemoryProofMediaStore } from './media/store.js';
+import type { ProofMediaStore } from './media/store.js';
+import { createInMemoryMediaRepository, createMediaService } from './media/upload.js';
+import type { MediaRepository, MediaService } from './media/upload.js';
+import { createInMemoryInstanceStore } from './media/instances.js';
+import type { InstanceStore } from './media/instances.js';
 
 /** The shape the family module keeps for accounts it may have to resolve. */
 interface DirectoryUser {
@@ -68,6 +74,20 @@ export interface AppServices {
    * reaching into storage helpers that only exist in development.
    */
   familyRepository: FamilyRepository;
+  /** lane C: proof-media upload (CONTRACTS #10). */
+  mediaService: MediaService;
+  /**
+   * Exposed for tests and for the expiry cron that will delete blobs at T+72h. Both are the in-memory
+   * dev adapters (ADR-004: a cold clone must run with zero setup); production swaps in durable ones
+   * behind the same ports.
+   */
+  proofMediaStore: ProofMediaStore;
+  mediaRepository: MediaRepository;
+  /**
+   * ⚠️ PLACEHOLDER -- see `media/instances.ts`. Delete it when the task module (#11-#14) lands and
+   * pass that module's own instance reader to `createMediaService` instead.
+   */
+  instanceStore: InstanceStore;
 }
 
 function toDirectoryUser(row: AuthUserRecord): DirectoryUser {
@@ -134,5 +154,31 @@ export function createAppServices(options: CreateAppServicesOptions = {}): AppSe
     familyDirectory: createFamilyDirectory(familyService),
   });
 
-  return { authService, familyService, authRepository, familyRepository };
+  // ---------------------------------------------------------------------------------------------
+  // lane C / media (W1-F) -- proof upload (CONTRACTS #10).
+  //
+  // The instance store is a PLACEHOLDER: nothing in this repository implements TaskInstance yet
+  // (#11-#14 are unclaimed). It exists so evidence upload can be exercised end to end today, and it
+  // is named `instances` here rather than buried in the media module so that whoever builds the task
+  // module finds it, deletes `media/instances.ts`, and passes their own reader instead.
+  // ---------------------------------------------------------------------------------------------
+  const proofMediaStore = createInMemoryProofMediaStore();
+  const mediaRepository = createInMemoryMediaRepository();
+  const instanceStore = createInMemoryInstanceStore();
+  const mediaService = createMediaService({
+    store: proofMediaStore,
+    repository: mediaRepository,
+    instances: instanceStore,
+  });
+
+  return {
+    authService,
+    familyService,
+    mediaService,
+    authRepository,
+    familyRepository,
+    proofMediaStore,
+    mediaRepository,
+    instanceStore,
+  };
 }

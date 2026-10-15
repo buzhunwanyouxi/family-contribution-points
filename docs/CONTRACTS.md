@@ -27,13 +27,54 @@
 | 7 | POST | `/api/families/join` | `{inviteCode, nickname?}` | `{family, membership}` | **已定稿(已实现 200,幂等)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
 | 8 | GET | `/api/families` | header: Bearer | `{families:[FamilySummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
 | 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
-| 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(待实现)** | 车道 C | 2026-10-10 |
+| 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(已实现)** | 发起人(2026-10-15 实现) | 2026-10-15 |
 | 10b | GET | `/api/families/:fid/invite` | header: Bearer(须为 owner/admin) | `{inviteCode, inviteExpireAt, qrPayload}` | **已定稿(已实现)** | 发起人(2026-10-13 认领) | 2026-10-13 |
 | 11 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
 | 12 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
 | 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
 | 14 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
 | 15 | GET | `/api/families/:fid/points/:uid` | header: Bearer(须为该家庭成员) | `{earned, available, spent, frozen}` | **已定稿(已实现)** | 发起人(2026-10-15 认领) | 2026-10-15 |
+
+### 证据上传交付说明(#10 已实现,2026-10-15)
+
+实现落点:校验 `apps/api/src/media/classify.ts`(纯函数)+ 用例 `apps/api/src/media/upload.ts` +
+路由 `apps/api/src/routes/media.ts` + 存储端口 `apps/api/src/media/store.ts`。
+测试:服务层 19 个 + HTTP 层 7 个(multipart 真跑)+ classify 16 个。
+
+**错误码(前端按码分支,不要按文案)**:
+
+| HTTP | `error` | 什么时候 | 前端该做什么 |
+|---|---|---|---|
+| 400 | `no_file` | 请求里没有文件部分 | 提示重新选择 |
+| 400 | `validation_error` | 路径参数不合法 | 报 bug |
+| 401 | `unauthorized` | 无 token | 清会话跳登录 |
+| 403 | `not_a_member` | 调用者不是该家庭成员 | 提示无权限;**与"家庭不存在"同码**,防探测 |
+| 404 | `instance_not_found` | 实例不存在,**或属于别的家庭** | 提示任务已删除;同样不区分,防探测 |
+| 409 | `instance_already_settled` | 任务已结算(done/rejected/abandoned) | 提示找家长 |
+| 413 | `media_too_large` | 图片 >300KB 或视频 >20MB | 压缩后重试 |
+| 415 | `unsupported_media` | 字节不是已知图片/视频格式 | 提示支持的格式 |
+
+**校验规则(D7)**:
+
+| 项 | 规则 | 判定依据 |
+|---|---|---|
+| 类型 | JPG / PNG / WebP / HEIC;MP4 / MOV / WebM | **魔数(magic bytes)**,不看客户端声明的 `Content-Type` |
+| 图片大小 | ≤ 300KB | 真实字节数 |
+| 视频大小 | ≤ 20MB | 真实字节数 |
+| 声明矛盾 | 声明 `image/*` 但字节是视频 → 415 | 抓前端传错字段这类 bug |
+| **视频时长 ≤15 秒** | ⚠️ **未在服务端强制** | 需要容器解析器;列在 ops 日志的未验证维度里,由客户端保证 |
+
+**`expireAt` 在上传时写死** = `createdAt + PROOF_TTL_HOURS`(默认 72h,D8 硬要求),
+不是等 cron 补写 —— 删除任务以这一列为准。
+
+> ⚠️ **存储目前是进程内的(开发默认)。** 仓库冷克隆要能零配置运行(ADR-004),所以默认用的是
+> 内存存储;**进程重启后字节会丢,而元数据行还在**。生产必须换成对象存储适配器(实现
+> `ProofMediaStore` 端口即可),这一步列在 ops 日志的下一步里,不是遗漏。
+>
+> ⚠️ **任务实例目前是占位实现**(`apps/api/src/media/instances.ts`):`TaskInstance` 的读写
+> (#11-#14)尚未开工,而上传必须先回答"这个实例存在吗、属于谁、结算了吗"。
+> 任务模块落地后请**删掉那个文件**,把任务模块自己的 reader 传给 `createMediaService` ——
+> media 模块只认识端口,不需要改。
 
 ### 积分查询交付说明(#15 已实现,2026-10-15)
 
