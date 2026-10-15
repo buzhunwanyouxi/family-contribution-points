@@ -272,6 +272,67 @@ describe('真实后端冒烟:注册 → 建家 → 邀请码 → 加入', () => 
     expect(displayMessage(denied.body)).not.toContain('不是这个家庭的成员');
   });
 
+  it('积分四数可以查到,且恒等式成立(CONTRACTS #15 + F5/F6 v1.3)', async () => {
+    const owner = (
+      await call('/api/auth/register', {
+        method: 'POST',
+        body: { account: nextAccount(), password: 'smoke-pass-123', nickname: '冒烟积分' },
+      })
+    ).body as { token: string; user: { id: string } };
+
+    const family = await call('/api/families', {
+      method: 'POST',
+      body: { name: '积分之家' },
+      token: owner.token,
+    });
+    const familyId = (family.body as { family: { id: string } }).family.id;
+
+    const points = await call(`/api/families/${familyId}/points/${owner.user.id}`, { token: owner.token });
+    expect(points.status, `取积分失败:${displayMessage(points.body)}`).toBe(200);
+
+    const four = points.body as { earned: number; available: number; spent: number; frozen: number };
+    // 契约 #15 的四个字段必须齐,少一个前端首页就画不出来(F2)
+    expect(Object.keys(four).sort()).toEqual(['available', 'earned', 'frozen', 'spent']);
+    // 新家庭的新成员:四个数都是 0
+    expect(four).toEqual({ earned: 0, available: 0, spent: 0, frozen: 0 });
+    // 恒等式:累计获得 − 已消费 = 当前可用(F5/F6 v1.3)
+    expect(four.earned - four.spent).toBeCloseTo(four.available, 10);
+  });
+
+  it('不是家庭成员的人查不到别人的积分(403,且与"家庭不存在"同码)', async () => {
+    const owner = (
+      await call('/api/auth/register', {
+        method: 'POST',
+        body: { account: nextAccount(), password: 'smoke-pass-123', nickname: '冒烟家庭' },
+      })
+    ).body as { token: string; user: { id: string } };
+    const family = await call('/api/families', {
+      method: 'POST',
+      body: { name: '私密之家' },
+      token: owner.token,
+    });
+    const familyId = (family.body as { family: { id: string } }).family.id;
+
+    const stranger = (
+      await call('/api/auth/register', {
+        method: 'POST',
+        body: { account: nextAccount(), password: 'smoke-pass-123', nickname: '冒烟外人' },
+      })
+    ).body as { token: string };
+
+    const denied = await call(`/api/families/${familyId}/points/${owner.user.id}`, {
+      token: stranger.token,
+    });
+    const unknownFamily = await call(`/api/families/does-not-exist/points/${owner.user.id}`, {
+      token: stranger.token,
+    });
+
+    expect(denied.status).toBe(403);
+    // 防探测:外人读真实家庭与读不存在的家庭,回答必须一模一样
+    expect(unknownFamily.status).toBe(denied.status);
+    expect((unknownFamily.body as ErrorBody).error).toBe((denied.body as ErrorBody).error);
+  });
+
   it('没有 token 时受保护接口返回 401 且是 JSON(前端据此清会话并跳登录)', async () => {
     const { status, body } = await call('/api/families');
     expect(status).toBe(401);

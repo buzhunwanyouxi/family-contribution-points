@@ -34,6 +34,7 @@ import type { AuthRepository, AuthService, AuthUserRecord, CreateUserInput } fro
 import { createFamilyDirectory } from './family/directory.js';
 import { createInMemoryFamilyRepository } from './family/repository.js';
 import type { InMemoryFamilyRepository } from './family/repository.js';
+import type { FamilyRepository } from './family/types.js';
 import { createFamilyService } from './family/service.js';
 import type { FamilyService } from './family/index.js';
 
@@ -61,8 +62,12 @@ export interface AppServices {
   familyService: FamilyService;
   /** Exposed for diagnostics and tests, e.g. asserting both modules see the same accounts. */
   authRepository: AuthRepository;
-  /** Exposed for the same reason; also what a future job runner would reach for. */
-  familyRepository: InMemoryFamilyRepository;
+  /**
+   * Exposed deliberately as the *interface*, not the in-memory class: lane C's points route reads the
+   * four numbers through `findMembership`, and widening the surface to the concrete type would invite
+   * reaching into storage helpers that only exist in development.
+   */
+  familyRepository: FamilyRepository;
 }
 
 function toDirectoryUser(row: AuthUserRecord): DirectoryUser {

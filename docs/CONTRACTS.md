@@ -33,9 +33,33 @@
 | 12 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
 | 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
 | 14 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
-| 15 | GET | `/api/families/:fid/points/:uid` | — | `{earned, available, spent, frozen}` | 待认领 | — | — |
+| 15 | GET | `/api/families/:fid/points/:uid` | header: Bearer(须为该家庭成员) | `{earned, available, spent, frozen}` | **已定稿(已实现)** | 发起人(2026-10-15 认领) | 2026-10-15 |
 
-### 前端调用约定(车道 C 冻结,所有人遵守)
+### 积分查询交付说明(#15 已实现,2026-10-15)
+
+实现落点:用例 `apps/api/src/points/view.ts`(纯映射)+ 路由 `apps/api/src/routes/points.ts`,
+测试 `apps/api/src/points/view.test.ts`(7 个)+ 真实后端冒烟 2 条。
+
+**四个数字只转发、不计算。** 唯一口径实现在 `apps/api/src/points/ledger.ts`(F5/F6 v1.3),
+本接口从 `Membership` 原样取出并改个名(`points` → `available`),**不做任何加减、取整或"修正"**。
+恒等式在每次响应上都必须成立:
+
+```
+earned − spent === available        冻结中是 available 的保留子集,不叠加
+```
+
+**授权(冻结)**:
+
+| 调用者 | 结果 |
+|---|---|
+| 该家庭成员(任意角色) | 200 —— 家里每个人的积分**互相可见**,这正是产品要的透明度 |
+| 不是该家庭成员 | **403 `not_a_member`** |
+| 家庭不存在 / `:uid` 不是该家庭成员 | **同一个 403**,不区分 —— 否则可用它探测某个 user id 是否存在 |
+| 无 token | 401 `unauthorized` |
+
+> ⚠️ **`:uid` 允许查别人**:成员之间互相可见是有意设计。
+> 但**调用者自己必须是该家庭成员** —— 只校验"被查的人是否在家庭里"会让人猜到 user id 就读到别人的数字。
+
 
 > ⚠️ **实现前必读**:积分四项数值的语义以 `apps/api/src/points/ledger.ts` 顶部注释为准(F6 已于 v1.3 裁决)。
 >

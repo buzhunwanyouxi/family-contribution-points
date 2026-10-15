@@ -13,6 +13,7 @@ import { healthRoutes } from './health.js';
 import { scoringRoutes } from './scoring.js';
 import { registerAuth } from './auth.js';
 import { registerFamily } from './family.js';
+import { registerPoints } from './points.js';
 import { createAppServices } from '../composition.js';
 import type { AppServices } from '../composition.js';
 
@@ -56,6 +57,12 @@ export async function registerRoutes(
   // exists once registerAuth() has decorated the root instance. registerFamily() fails loudly if it
   // is missing, instead of quietly serving family data without authentication.
   await registerFamily(app, { service: services.familyService });
+
+  // lane C / points (W1-F) -- GET /api/families/:fid/points/:uid (CONTRACTS #15).
+  // Same ordering rule as family: it needs `app.requireAuth` from registerAuth(). It shares the
+  // family repository because the four numbers live on `Membership`, and the ledger's rule is that
+  // they are **forwarded**, never recomputed here.
+  await registerPoints(app, { repository: services.familyRepository });
 
   // lane C / media (W3-01) -- path frozen in CONTRACTS #10:
   //   POST /api/families/:fid/instances/:iid/proof
