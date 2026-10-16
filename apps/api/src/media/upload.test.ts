@@ -58,7 +58,20 @@ describe('uploadProof -- the happy path', () => {
     const view = await upload(service);
 
     expect(Object.keys(view).sort()).toEqual(
-      ['createdAt', 'expireAt', 'id', 'refId', 'refType', 'sizeBytes', 'type', 'uploaderId', 'url'].sort(),
+      // `access` is part of the frozen shape on purpose: the client rebuilds the signed query from it
+      // when it re-fetches the evidence list, instead of parsing the signature back out of the url.
+      [
+        'access',
+        'createdAt',
+        'expireAt',
+        'id',
+        'refId',
+        'refType',
+        'sizeBytes',
+        'type',
+        'uploaderId',
+        'url',
+      ].sort(),
     );
     expect(view).toMatchObject({
       refType: 'instance',

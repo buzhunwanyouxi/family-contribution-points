@@ -35,11 +35,68 @@
 | 14 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
 | 15 | GET | `/api/families/:fid/points/:uid` | header: Bearer(须为该家庭成员) | `{earned, available, spent, frozen}` | **已定稿(已实现)** | 发起人(2026-10-15 认领) | 2026-10-15 |
 
-### 证据上传交付说明(#10 已实现,2026-10-15)
+### 证据上传与读取交付说明(#10 已实现,2026-10-15;读取补齐 2026-10-16)
 
-实现落点:校验 `apps/api/src/media/classify.ts`(纯函数)+ 用例 `apps/api/src/media/upload.ts` +
-路由 `apps/api/src/routes/media.ts` + 存储端口 `apps/api/src/media/store.ts`。
-测试:服务层 19 个 + HTTP 层 7 个(multipart 真跑)+ classify 16 个。
+实现落点:校验 `apps/api/src/media/classify.ts`(纯函数)+ 签名 `access.ts` + 用例 `upload.ts` +
+路由 `apps/api/src/routes/media.ts` + 存储端口 `media/store.ts`。
+测试:classify 16 + access 12 + 服务层 19 + 上传 HTTP 7 + **读取 HTTP 10**。
+
+**两个端点**:
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| POST | `/api/families/:fid/instances/:iid/proof` | 上传(multipart,字段名 `file`)→ 201 `{media}` |
+| **GET** | **`/media/:familyId/:instanceId/:mediaId`** | **读取证据本体**。带 `?exp=&sig=` 走签名;不带则要 Bearer |
+
+**`media` 的响应形状(冻结)**:
+
+```jsonc
+{
+  "id": "…", "refType": "instance", "refId": "…", "uploaderId": "…",
+  "type": "image", "sizeBytes": 12345,
+  "url": "/media/<familyId>/<instanceId>/<mediaId>?exp=1792174104&sig=4a6c…",  // ★ 已带签名
+  "access": { "exp": 1792174104, "sig": "4a6c…" },                              // ★ 同一份签名
+  "expireAt": "2026-10-19T…Z", "createdAt": "2026-10-16T…Z"
+}
+```
+
+> ### ⚠️ `url` 与 `access` 的关系(踩过一次,别再踩)
+>
+> **`url` 是"可以直接请求"的完整地址,已经带了签名;`access` 是同一份签名的单独副本。**
+> **不要**把 `access` 拼到 `url` 后面 —— 那会得到
+> `…?exp=A&sig=B?exp=A&sig=B`,第二个 `exp` 变成 `"B?exp=A"`,签名校验失败,
+> **而 url 看起来完全正常**。
+>
+> `access` 的用途只有一个:**重新拉取证据列表时自己重建 query**,省得回头解析 url。
+> 测试 `media-read.test.ts` 里有一条专门钉住这个区别。
+>
+> ### ⚠️ `url` 是**相对路径**,前端必须配上自己那份 API 基址
+>
+> 真实浏览器验证时踩到过:探针页跑在 `:3456`、API 在 `:3455`,直接 `<img src="/media/…">`
+> 会让浏览器去**页面自己的 origin** 取,拿回一个 HTML 页,`<img>` 裂图且**状态码是 200**
+> (所以不看 `content-type` 根本发现不了)。
+> 前端要用 `API_BASE + media.url`,**不要**把相对 url 当绝对地址用。
+
+**读取端点的授权(两条路,都是冻结行为)**:
+
+| 请求 | 结果 |
+|---|---|
+| `?exp=&sig=` 有效 | 200(证明调用者拿到了服务端签发的链接) |
+| 签名无效 / 跨文件复用 / 改过 `exp` | **404 `media_gone`** —— 不给探测者任何信息 |
+| 无签名 + 有效 Bearer + 属于该家庭 | 200 |
+| 无签名 + 有效 Bearer + **不属于该家庭** | 403 `forbidden` |
+| 无签名 + 无 token | 401 `unauthorized` |
+| 证据已过 72 小时 / 已被删除 / 从未存在 | **404 `media_gone`**(三者同一个答案) |
+| `?download=1` | `Content-Disposition: attachment`,否则 `inline` |
+
+> ⚠️ **为什么不用 Authorization 头**:`<img src>` 发不出自定义头。三个选择里选了**签名 URL** ——
+> 把会话令牌放进 query 会泄漏到浏览器历史与服务器日志(用长期凭据换短期需求);
+> 改用 cookie 则要引入本项目目前没有的 CSRF 考虑。签名**只对这一份证据有效**且**自带到期时间**。
+> 签名覆盖 `mediaId + exp`,所以换文件、改到期时间都会失效;上限 **72 小时**(与 D8 证据寿命一致),
+> 默认 **6 小时**。
+
+> ⚠️ **72 小时是在读取时判定的**,不只靠删除任务。删除任务可能还没跑、或者挂了,
+> 而"72 小时后不可查看"是规则本身 —— 判定点放在读取路径上才不会被跳过。
 
 **错误码(前端按码分支,不要按文案)**:
 
@@ -48,8 +105,10 @@
 | 400 | `no_file` | 请求里没有文件部分 | 提示重新选择 |
 | 400 | `validation_error` | 路径参数不合法 | 报 bug |
 | 401 | `unauthorized` | 无 token | 清会话跳登录 |
-| 403 | `not_a_member` | 调用者不是该家庭成员 | 提示无权限;**与"家庭不存在"同码**,防探测 |
+| 403 | `not_a_member` | 上传者不是该家庭成员 | 提示无权限;**与"家庭不存在"同码**,防探测 |
+| 403 | `forbidden` | 读取时登录了但不属于证据所在家庭 | 提示无权限 |
 | 404 | `instance_not_found` | 实例不存在,**或属于别的家庭** | 提示任务已删除;同样不区分,防探测 |
+| 404 | `media_gone` | 证据不存在 / 已删除 / **已过 72 小时** | 显示"证据已到期"占位卡(4.10) |
 | 409 | `instance_already_settled` | 任务已结算(done/rejected/abandoned) | 提示找家长 |
 | 413 | `media_too_large` | 图片 >300KB 或视频 >20MB | 压缩后重试 |
 | 415 | `unsupported_media` | 字节不是已知图片/视频格式 | 提示支持的格式 |

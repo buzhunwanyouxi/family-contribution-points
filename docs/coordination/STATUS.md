@@ -2,12 +2,12 @@
 
 > ⚠️ **本文件由 `scripts/sync-inbox.mjs` 自动生成,不要手工编辑。**
 
-**最后生成**:2026-10-16 20:02 @ `8e182f6`  ·  共 5 条待办
+**最后生成**:2026-10-16 20:09 @ `c423fa6`  ·  共 4 条待办
 
 | 人 | 待办数 | 收件箱 |
 |---|---|---|
 | MIAO98J | 1 | [INBOX-MIAO98J.md](INBOX-MIAO98J.md) |
-| buzhunwanyouxi | 3 | [INBOX-buzhunwanyouxi.md](INBOX-buzhunwanyouxi.md) |
+| buzhunwanyouxi | 2 | [INBOX-buzhunwanyouxi.md](INBOX-buzhunwanyouxi.md) |
 | sun-521-s | 1 | [INBOX-sun-521-s.md](INBOX-sun-521-s.md) |
 
 ## 全部条目
@@ -18,4 +18,3 @@
 | `family-unlock-for-frontend` | 必须知道 | family 模块合并后,前端可以切掉 Mock 走真实接口 | buzhunwanyouxi | 2026-10-12T05:04:25Z | apps/web/src/api/config.ts |
 | `family-user-directory-port` | 开工 | family 应改为依赖 UserDirectoryPort,而不是自己维护一份用户表 | MIAO98J | 2026-10-13T13:56:00Z | apps/api/src/composition.ts |
 | `notify-add-email-channel` | 必须知道 | 需求通知目前只有邮件一条通道(没有微信/短信/私信) | buzhunwanyouxi | 2026-10-12T04:12:00Z | docs/coordination/README.md#通道边界 |
-| `media-has-no-read-route` | 开工 | 证据上传后读不出来:上传返回的 url 没有任何路由处理,前端看到的是裂图 | buzhunwanyouxi | 2026-10-16T12:10:00Z | docs/CONTRACTS.md#证据上传交付说明10-已实现2026-10-15 |

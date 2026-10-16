@@ -61,6 +61,11 @@ export interface CreateAppServicesOptions {
    * modules already read the same `User` table, so there is nothing to keep in sync.
    */
   authRepository?: AuthRepository;
+  /**
+   * Signs evidence URLs (`GET /media/...`). Defaults to `secret` so tests that already pass a JWT
+   * secret need no second knob; production should set a distinct one.
+   */
+  mediaAccessSecret?: string;
 }
 
 export interface AppServices {
@@ -88,6 +93,14 @@ export interface AppServices {
    * pass that module's own instance reader to `createMediaService` instead.
    */
   instanceStore: InstanceStore;
+  /**
+   * Passed through to the media routes so they verify exactly what the service signs.
+   *
+   * `undefined` means "both sides use their own development default", which is why the two defaults
+   * are the same string and why `routes/media.ts` says so next to its copy. A cold clone therefore
+   * works; production sets one value and both sides pick it up.
+   */
+  mediaAccessSecret: string | undefined;
 }
 
 function toDirectoryUser(row: AuthUserRecord): DirectoryUser {
@@ -165,10 +178,14 @@ export function createAppServices(options: CreateAppServicesOptions = {}): AppSe
   const proofMediaStore = createInMemoryProofMediaStore();
   const mediaRepository = createInMemoryMediaRepository();
   const instanceStore = createInMemoryInstanceStore();
+  // Signed evidence URLs. Derived from the JWT secret when one is injected, so a test that passes a
+  // secret gets matching signatures without a second knob; the default keeps a cold clone runnable.
+  const mediaAccessSecret = options.mediaAccessSecret ?? options.secret ?? undefined;
   const mediaService = createMediaService({
     store: proofMediaStore,
     repository: mediaRepository,
     instances: instanceStore,
+    ...(mediaAccessSecret === undefined ? {} : { accessSecret: mediaAccessSecret }),
   });
 
   return {
@@ -180,5 +197,6 @@ export function createAppServices(options: CreateAppServicesOptions = {}): AppSe
     proofMediaStore,
     mediaRepository,
     instanceStore,
+    mediaAccessSecret,
   };
 }

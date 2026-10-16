@@ -14,7 +14,9 @@ export type MediaErrorCode =
   | 'instance_already_settled'
   | 'unsupported_media'
   | 'media_too_large'
-  | 'no_file';
+  | 'no_file'
+  | 'media_gone'
+  | 'forbidden';
 
 export interface ErrorBody {
   error: string;
@@ -113,6 +115,37 @@ export class MediaError extends Error {
       message,
       details,
       logReason: 'media_too_large',
+    });
+  }
+
+  /**
+   * The evidence is not available: never existed, already purged, or past its 72-hour deadline.
+   *
+   * **One answer for three situations, on purpose.** Any difference between them would let a caller
+   * discover whether a given media id exists in someone else's family. The user-facing message is
+   * written for the honest and most common case (the 72-hour rule), because that is what a family
+   * member will actually hit.
+   */
+  static mediaGone(): MediaError {
+    return new MediaError('media_gone', {
+      status: 404,
+      message: '证据已过期或不存在(证据只保留 72 小时)',
+      logReason: 'media_gone',
+    });
+  }
+
+  /**
+   * Authenticated, but not entitled to this evidence.
+   *
+   * 403 rather than 404 here is deliberate and is NOT a probing hole: the caller has *proved* a
+   * signature over this specific media id (only the server can mint one), so they already know it
+   * exists. Hiding it further would only confuse the download button without hiding anything.
+   */
+  static forbidden(): MediaError {
+    return new MediaError('forbidden', {
+      status: 403,
+      message: '你没有权限查看这份证据',
+      logReason: 'forbidden',
     });
   }
 }

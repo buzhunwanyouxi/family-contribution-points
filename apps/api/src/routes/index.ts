@@ -65,11 +65,15 @@ export async function registerRoutes(
   // they are **forwarded**, never recomputed here.
   await registerPoints(app, { repository: services.familyRepository });
 
-  // lane C / media (W1-F) -- POST /api/families/:fid/instances/:iid/proof (CONTRACTS #10).
+  // lane C / media (W1-F) -- POST .../instances/:iid/proof and GET /media/<key> (CONTRACTS #10).
   // Ordering matters twice over here: it needs `app.requireAuth` from registerAuth(), AND it
   // registers `@fastify/multipart` on this same instance so the upload route can see the parser.
+  // The access secret goes through unchanged so the route verifies exactly what the service signed.
   await registerMedia(app, {
     service: services.mediaService,
     repository: services.familyRepository,
+    ...(services.mediaAccessSecret === undefined
+      ? {}
+      : { accessSecret: services.mediaAccessSecret }),
   });
 }

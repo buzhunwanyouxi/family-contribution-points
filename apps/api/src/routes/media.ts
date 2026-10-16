@@ -20,6 +20,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import multipart from '@fastify/multipart';
 import { currentUserId } from '../auth/index.js';
 import type { RequireAuth } from '../auth/index.js';
+import { verifyAccess } from '../media/access.js';
 import { MediaError } from '../media/errors.js';
 import { MAX_VIDEO_BYTES } from '../media/classify.js';
 import type { MediaService } from '../media/upload.js';
@@ -28,10 +29,15 @@ import type { FamilyRepository } from '../family/index.js';
 /** 21MB: one megabyte of headroom so our own validation reports the failure (see the file header). */
 const TRANSPORT_LIMIT_BYTES = MAX_VIDEO_BYTES + 1024 * 1024;
 
+/** Mirrors the service default; the two must match or signed URLs will not verify. */
+const DEFAULT_ACCESS_SECRET = 'dev-only-media-access-secret-change-me';
+
 export interface RegisterMediaOptions {
   service: MediaService;
   /** Membership of the caller is what gates upload: you may only attach evidence to your own family. */
   repository: FamilyRepository;
+  /** Signs and verifies evidence URLs. Defaults to the same development secret the service uses. */
+  accessSecret?: string;
 }
 
 function resolveRequireAuth(app: FastifyInstance): RequireAuth {
@@ -66,6 +72,7 @@ export async function registerMedia(
 
   const requireAuth = resolveRequireAuth(app);
   const { service, repository } = options;
+  const accessSecret = options.accessSecret ?? DEFAULT_ACCESS_SECRET;
 
   app.post(
     '/api/families/:fid/instances/:iid/proof',
@@ -113,4 +120,93 @@ export async function registerMedia(
       }
     },
   );
+
+  // ---------------------------------------------------------------------------------------------
+  // GET /media/<key> -- the other half of #10.
+  //
+  // Without this route the upload's response is a broken image: the url it hands the client 404s.
+  // Authorisation comes in one of two shapes, because the same evidence is reached two ways:
+  //
+  //   * `<img src>` / `<video src>`: **cannot send a header**, so the URL carries `exp` + `sig`.
+  //   * the download button: sends the normal Bearer token.
+  //
+  // Both are checked here rather than in the service, because only the route knows which one the
+  // caller used. The signature is verified against the media id parsed out of the path -- a token
+  // minted for one photo must not open another.
+  // ---------------------------------------------------------------------------------------------
+  app.get(
+    '/media/*',
+    {
+      // Two ways in, so the hook has to decide which one applies:
+      //   * a signed URL (what `<img src>` uses, since it cannot send a header) -> allowed straight
+      //     through, because verifying the signature needs the media id from the route params;
+      //   * anything else -> the normal session gate, which also populates `request.authUser`, so the
+      //     handler can call `currentUserId()` exactly like every other route.
+      // Doing the session check here instead of by hand is not just less code: it produces the same
+      // 401 body as everywhere else, and it cannot forget a case.
+      preHandler: async (request, reply) => {
+        const query = request.query as Record<string, unknown>;
+        const signed = typeof query.sig === 'string' && query.sig !== '';
+        if (signed) return;
+        await requireAuth(request, reply);
+      },
+    },
+    async (request, reply) => {
+      const wildcard = (request.params as Record<string, unknown>)['*'];
+      const key = typeof wildcard === 'string' ? wildcard : '';
+      const mediaId = lastSegment(key);
+      if (mediaId === '') return fail(reply, request, MediaError.validation({ field: 'path' }));
+
+      try {
+        const query = request.query as Record<string, unknown>;
+        const hasSignature = typeof query.sig === 'string' && query.sig !== '';
+        const familyId = key.split('/')[0] ?? '';
+
+        if (hasSignature) {
+          const verdict = verifyAccess(accessSecret, mediaId, query, new Date());
+          if (!verdict.ok) {
+            // `expired` is the honest answer for a stale link; a forged signature gets the same 404,
+            // so guessing learns nothing about whether the id exists.
+            request.log.warn({ media: 'bad_signature', reason: verdict.reason }, '签名校验失败');
+            throw MediaError.mediaGone();
+          }
+        } else {
+          // requireAuth ran and answered 401 itself if it was going to; if we are here, there is a
+          // verified session. `currentUserId` throwing here would mean the gate was skipped, so let
+          // that failure surface rather than being swallowed as a 404.
+          const callerId = currentUserId(request);
+          const membership =
+            familyId === '' ? null : await repository.findMembership(callerId, familyId);
+          if (membership === null) throw MediaError.forbidden();
+        }
+
+        const proof = await service.readProof(mediaId);
+        const wantsDownload = query.download === '1' || query.download === 'true';
+
+        // `private` keeps shared caches out of it; `no-store` because the evidence can be deleted at
+        // any moment and a cached copy would outlive the 72-hour rule.
+        reply.header('cache-control', 'private, no-store');
+        reply.header('content-type', proof.contentType);
+        reply.header(
+          'content-disposition',
+          `${wantsDownload ? 'attachment' : 'inline'}; filename="${proof.filename}"`,
+        );
+        return reply.send(Buffer.from(proof.bytes));
+      } catch (error) {
+        return fail(reply, request, error);
+      }
+    },
+  );
+}
+
+/**
+ * Media id is the last path segment of the storage key; keys are `<familyId>/<instanceId>/<mediaId>`.
+ *
+ * **No `decodeURIComponent` here.** Fastify already decodes wildcard params (verified: `%2F` arrives as
+ * `/`), so decoding again would corrupt any id containing a percent sign and would happily accept a
+ * double-encoded path that no legitimate client sends.
+ */
+function lastSegment(key: string): string {
+  const parts = key.split('/').filter((part) => part !== '');
+  return parts.length === 0 ? '' : parts[parts.length - 1]!;
 }
