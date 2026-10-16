@@ -1,0 +1,71 @@
+name: CI
+
+# 为什么要跑这些(而不是"装个 CI 显得正式")
+# ------------------------------------------
+# 2026-10-13 的现实:web 包零测试、`test` 脚本是 echo 空壳,于是"前端从未持久化 token"
+# 这类 bug 能在 226 个后端测试全绿的情况下活下来。补了测试之后,新的风险变成
+# **测试只在人记得跑的时候才跑** —— 而"人记得"是不可靠的,本项目已经用两次事故证明了这一点。
+#
+# 这个文件把三件事变成机器强制执行:
+#   1. 类型检查 + 全部测试(含真实后端冒烟)
+#   2. 三个包都能构建(构建失败不应该等到部署那天才发现)
+#   3. 协作机制自检 —— 账本一致、spec-gap 三条不对称、收工清单三处副本一致
+#
+# 第 3 条尤其重要:它是**仓库自己的规则**,写进文档靠自觉,放进 CI 才有牙齿。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一个分支连续推送时,取消上一次未跑完的检查(省额度,也不会有过期的绿灯)
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: 类型检查 / 测试 / 构建 / 机制自检
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      # 版本必须与 package.json 的 packageManager 字段一致,否则 pnpm 会拒绝运行
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.4.1
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: 安装依赖
+        # --frozen-lockfile:锁文件与 package.json 不一致时直接失败,而不是悄悄改锁文件。
+        # 这条同时保证了"协作者装的依赖"与"CI 装的依赖"完全一致。
+        run: pnpm install --frozen-lockfile
+
+      - name: 协作机制自检(账本一致 + spec-gap 三条不对称 + 收工清单三处一致)
+        # 失败时错误信息已经写清了"缺哪一条 / 哪一处副本",不需要再翻文档
+        run: pnpm sync:inbox:check
+
+      - name: spec-gap 机制自检(注入坏数据必须被拦住,合法条目不得误杀)
+        run: node scripts/sync-inbox.mjs --self-test
+
+      - name: 类型检查(三个包)
+        run: pnpm -r typecheck
+
+      - name: 测试
+        # 包含 apps/web 的**真实后端冒烟**(该套件自己拉起 API 进程并走 HTTP)。
+        # 它需要能 fork 子进程并监听端口 —— ubuntu runner 上没问题;
+        # 若将来换到受限环境把它跑不起来,应修环境而不是跳过这个套件。
+        run: pnpm -r test
+
+      - name: 构建(确认三个包都能产出)
+        run: pnpm -r build
