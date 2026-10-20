@@ -51,7 +51,7 @@
       "source": "https://github.com/buzhunwanyouxi/family-contribution-points/pull/1#issuecomment-6118267317",
       "action": "按 logReason 分流文案(缺 token → \"请先登录\";其余 → 保持\"登录已过期\"),或明确回复\"不改\"以便标为已知取舍",
       "needs": "AI 可直接开工",
-      "note": "低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可"
+      "note": "低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可;📣 已发通知:Issue #5(2026-10-20,指派给 sun-521-s,含 2 处测试断言的提醒)"
     },
     {
       "id": "family-unlock-for-frontend",
@@ -77,7 +77,7 @@
       "source": "apps/api/src/composition.ts",
       "action": "把 family/repository.ts 里 7 处 users.has/get/set 改成查询注入的 UserDirectoryPort(参照 auth 的 FamilyDirectoryPort 反向对称),然后删掉 `apps/api/src/composition.ts` 里的 createUserSyncingAuthRepository 桥",
       "needs": "AI 可直接开工",
-      "note": "现在是临时桥:装配层把 auth 建的账号镜像给 family 的私有用户表。Prisma 模式没这个问题(同一张 User 表),所以这是内存模式专属的补丁。改动属于 family 模块内部设计,故指给模块负责人;若暂不做也不影响功能,只是多一份需要同步的状态"
+      "note": "现在是临时桥:装配层把 auth 建的账号镜像给 family 的私有用户表。Prisma 模式没这个问题(同一张 User 表),所以这是内存模式专属的补丁。改动属于 family 模块内部设计,故指给模块负责人;若暂不做也不影响功能,只是多一份需要同步的状态;📣 已发通知:Issue #6(2026-10-20,指派给 MIAO98J,含删桥后必须新增的跨模块测试判据)"
     },
     {
       "id": "notify-add-email-channel",
