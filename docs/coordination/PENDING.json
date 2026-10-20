@@ -70,14 +70,14 @@
       "id": "family-user-directory-port",
       "title": "family 应改为依赖 UserDirectoryPort,而不是自己维护一份用户表",
       "to": [
-        "MIAO98J"
+        "buzhunwanyouxi"
       ],
       "kind": "task",
       "since": "2026-10-13T13:56:00Z",
       "source": "apps/api/src/composition.ts",
-      "action": "把 family/repository.ts 里 7 处 users.has/get/set 改成查询注入的 UserDirectoryPort(参照 auth 的 FamilyDirectoryPort 反向对称),然后删掉 `apps/api/src/composition.ts` 里的 createUserSyncingAuthRepository 桥",
+      "action": "待办池,无负责人。想接的话在这条上说一句,或直接改 OWNERS.md 的 family 行。若不接,发起人会在做完 MVP 关键路径后自己处理",
       "needs": "AI 可直接开工",
-      "note": "现在是临时桥:装配层把 auth 建的账号镜像给 family 的私有用户表。Prisma 模式没这个问题(同一张 User 表),所以这是内存模式专属的补丁。改动属于 family 模块内部设计,故指给模块负责人;若暂不做也不影响功能,只是多一份需要同步的状态;📣 已发通知:Issue #6(2026-10-20,指派给 MIAO98J,含删桥后必须新增的跨模块测试判据)"
+      "note": "2026-10-20 改为待办池:原指派给 MIAO98J(10-13),7 天无推进且无回复,按发起人指示不再指派。📣 Issue #6(已取消指派,评论说明原因)。工作量仍存在:family/repository.ts 里 7 处 users.has/get/set 换成注入的 UserDirectoryPort,并删掉 composition.ts 的 createUserSyncingAuthRepository 桥"
     },
     {
       "id": "notify-add-email-channel",
@@ -91,6 +91,19 @@
       "action": "知悉:所有'要人拍板'的事都靠 GitHub @ + 指派触发邮件;不要把协作需求只发在微信里,那等于没发",
       "needs": "知悉即可",
       "note": "GitHub 没有私信 API;微信/短信要另建常驻服务,暂不做"
+    },
+    {
+      "id": "m2-task-template-crud",
+      "title": "M2:固定任务模板 CRUD(#11,B1-B8)—— 唯一能完全并行开工的模块",
+      "to": [
+        "sun-521-s"
+      ],
+      "kind": "task",
+      "since": "2026-10-20T11:12:00Z",
+      "source": "docs/coordination/MVP-MODULES.md#m2--固定任务模板-crud11b1b8",
+      "action": "新建 apps/api/src/template/(types/repository/service/repeat/errors + 测试),实现 POST /api/families/:fid/templates 与列表接口。写代码前先补 CONTRACTS.md 的 #11 细项与 #18",
+      "needs": "AI 可直接开工",
+      "note": "★ 为什么是你:它不依赖 M1(任务实例),是六个模块里唯一能立刻并行的;新建目录不碰任何既有代码;核心是纯函数 repeat.ts,与你在 auth 写的 identifiers/jwt 同类。判据:非 owner → 403;maxPoints 缺失或 ≤0 → 400;repeatRule 非法 → 400;weekly:7 = 周日;monthly:31 在 2 月不生成(而不是报错);暂停后不在活跃列表但历史保留。📣 Issue #8(已指派)。OPENERS 里 task-template 行已标『进行中 + sun-521-s + 2026-10-20』,锁在你这"
     }
   ]
 }
