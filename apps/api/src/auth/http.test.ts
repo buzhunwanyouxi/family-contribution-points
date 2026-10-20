@@ -134,7 +134,8 @@ describe('auth HTTP surface (CONTRACTS #3-#5)', () => {
     const missing = await app.inject({ method: 'GET', url: '/api/auth/me' });
     expect(missing.statusCode).toBe(401);
     expect(missing.headers['content-type']).toContain('application/json');
-    expect(missing.json()).toEqual({ error: 'unauthorized', message: '登录已过期,请重新登录' });
+    // No token at all -> "请先登录", never "登录已过期" (Issue #5). The caller never had a session.
+    expect(missing.json()).toEqual({ error: 'unauthorized', message: '请先登录' });
 
     for (const header of ['Bearer nonsense', 'Bearer a.b.c', 'Basic abc']) {
       const response = await app.inject({

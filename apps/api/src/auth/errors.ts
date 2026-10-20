@@ -42,6 +42,20 @@ const USER_MESSAGE_BY_CODE: Record<AuthErrorCode, string> = {
   internal_error: '服务器出错了,请稍后再试',
 };
 
+/**
+ * `logReason` values that mean "this request carried **no token at all**", as opposed to "the token
+ * you sent is no longer usable".
+ *
+ * A first-time visitor has no session to expire, so "登录已过期" is simply false for them -- that is
+ * Issue #5 (raised in the post-merge review of PR #1, 2026-10-12). Behaviour is unchanged either way
+ * (the frontend clears its token and routes to login on any 401); this only fixes the wording.
+ *
+ * Kept as a set of reasons rather than a boolean because `unauthorized()` is also called for token
+ * verification failures (`token_expired`, `token_signature_mismatch`, ...), and those legitimately
+ * ARE "expired / invalid".
+ */
+const NO_TOKEN_REASONS = new Set(['missing_bearer_token', 'empty_token']);
+
 export interface AuthErrorOptions {
   message?: string;
   /** overrides the per-code Chinese default; use for field-specific guidance */
@@ -101,9 +115,18 @@ export class AuthError extends Error {
     });
   }
 
+  /**
+   * 401. The wording depends on WHY the request was rejected (Issue #5):
+   *   - no token was sent at all  -> "请先登录"  (a new visitor never had a session)
+   *   - a token was sent but is unusable (expired, forged, wrong issuer) -> "登录已过期,请重新登录"
+   *
+   * `logReason` carries the distinction; the client still only sees one machine code (`unauthorized`),
+   * so nothing about the token's contents leaks.
+   */
   static unauthorized(logReason = 'unauthorized'): AuthError {
     return new AuthError('unauthorized', {
       message: 'authentication required',
+      userMessage: NO_TOKEN_REASONS.has(logReason) ? '请先登录' : USER_MESSAGE_BY_CODE.unauthorized,
       logReason,
     });
   }
