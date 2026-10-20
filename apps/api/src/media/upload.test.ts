@@ -9,9 +9,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import { PROOF_TTL_HOURS } from '@fcp/shared';
-import { createInMemoryInstanceStore } from './instances.js';
 import { createInMemoryProofMediaStore } from './store.js';
 import { createInMemoryMediaRepository, createMediaService } from './upload.js';
+import type { InstanceFacts, InstanceReader } from './upload.js';
 
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...new Array(200).fill(0)]);
 const MP4 = new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, ...new Array(400).fill(0)]);
@@ -21,11 +21,25 @@ const INSTANCE = 'instance-1';
 const UPLOADER = 'user-1';
 const NOW = new Date('2026-10-15T12:00:00.000Z');
 
+/**
+ * Minimal stand-in for the instance module's reader.
+ *
+ * Local to this file rather than shared: the media module only ever needs these three fields, and a
+ * five-line fake that a reader can verify in one glance beats importing the real module into a unit
+ * test (which would make this test depend on the entire state machine).
+ */
+function fakeInstances(facts: InstanceFacts): InstanceReader {
+  return {
+    async findInstance(instanceId: string) {
+      return instanceId === facts.id ? { ...facts } : null;
+    },
+  };
+}
+
 function setup(options: { instanceFamily?: string; instanceStatus?: string } = {}) {
   const store = createInMemoryProofMediaStore();
   const repository = createInMemoryMediaRepository();
-  const instances = createInMemoryInstanceStore();
-  instances.add({
+  const instances = fakeInstances({
     id: INSTANCE,
     familyId: options.instanceFamily ?? FAMILY,
     status: options.instanceStatus ?? 'doing',

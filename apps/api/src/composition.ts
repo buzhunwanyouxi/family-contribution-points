@@ -40,9 +40,14 @@ import type { FamilyService } from './family/index.js';
 import { createInMemoryProofMediaStore } from './media/store.js';
 import type { ProofMediaStore } from './media/store.js';
 import { createInMemoryMediaRepository, createMediaService } from './media/upload.js';
-import type { MediaRepository, MediaService } from './media/upload.js';
-import { createInMemoryInstanceStore } from './media/instances.js';
-import type { InstanceStore } from './media/instances.js';
+import type { InstanceReader, MediaRepository, MediaService } from './media/upload.js';
+import { createInMemoryInstanceRepository } from './instances/repository.js';
+import { createInstanceService } from './instances/service.js';
+import type {
+  InMemoryInstanceRepository,
+  InstanceRepository,
+  InstanceService,
+} from './instances/index.js';
 
 /** The shape the family module keeps for accounts it may have to resolve. */
 interface DirectoryUser {
@@ -89,10 +94,12 @@ export interface AppServices {
   proofMediaStore: ProofMediaStore;
   mediaRepository: MediaRepository;
   /**
-   * ⚠️ PLACEHOLDER -- see `media/instances.ts`. Delete it when the task module (#11-#14) lands and
-   * pass that module's own instance reader to `createMediaService` instead.
+   * M1 (CONTRACTS #16/#17). The media module reads instances through a narrow `InstanceReader` port;
+   * this is the real one -- the earlier placeholder in `media/instances.ts` is gone.
    */
-  instanceStore: InstanceStore;
+  instanceService: InstanceService;
+  /** Exposed for tests (seed fixtures) and for M3's generation job. */
+  instanceRepository: InstanceRepository;
   /**
    * Passed through to the media routes so they verify exactly what the service signs.
    *
@@ -168,23 +175,39 @@ export function createAppServices(options: CreateAppServicesOptions = {}): AppSe
   });
 
   // ---------------------------------------------------------------------------------------------
-  // lane C / media (W1-F) -- proof upload (CONTRACTS #10).
+  // M1 / instances (CONTRACTS #16/#17) + lane C / media (CONTRACTS #10).
   //
-  // The instance store is a PLACEHOLDER: nothing in this repository implements TaskInstance yet
-  // (#11-#14 are unclaimed). It exists so evidence upload can be exercised end to end today, and it
-  // is named `instances` here rather than buried in the media module so that whoever builds the task
-  // module finds it, deletes `media/instances.ts`, and passes their own reader instead.
+  // The instances module is now the real owner of TaskInstance. Media reads it through a narrow
+  // `InstanceReader` port instead of importing the module, so upload keeps working without depending
+  // on the claim/score/settle machinery -- and there is exactly one idea of what an instance is.
   // ---------------------------------------------------------------------------------------------
+  const instanceRepository = createInMemoryInstanceRepository();
+  const instanceService = createInstanceService({ repository: instanceRepository });
+
+  /**
+   * Adapter from the instance service to the media module's port.
+   *
+   * Two fields only, because that is all upload needs to answer its question ("does this instance
+   * exist, in whose family, is it settled"). Passing the whole service would invite the media module
+   * to claim or settle something, which is not its job.
+   */
+  const instanceReader: InstanceReader = {
+    async findInstance(instanceId: string) {
+      const record = await instanceRepository.findById(instanceId);
+      if (record === null) return null;
+      return { id: record.id, familyId: record.familyId, status: record.status };
+    },
+  };
+
   const proofMediaStore = createInMemoryProofMediaStore();
   const mediaRepository = createInMemoryMediaRepository();
-  const instanceStore = createInMemoryInstanceStore();
   // Signed evidence URLs. Derived from the JWT secret when one is injected, so a test that passes a
   // secret gets matching signatures without a second knob; the default keeps a cold clone runnable.
   const mediaAccessSecret = options.mediaAccessSecret ?? options.secret ?? undefined;
   const mediaService = createMediaService({
     store: proofMediaStore,
     repository: mediaRepository,
-    instances: instanceStore,
+    instances: instanceReader,
     ...(mediaAccessSecret === undefined ? {} : { accessSecret: mediaAccessSecret }),
   });
 
@@ -192,11 +215,12 @@ export function createAppServices(options: CreateAppServicesOptions = {}): AppSe
     authService,
     familyService,
     mediaService,
+    instanceService,
     authRepository,
     familyRepository,
     proofMediaStore,
     mediaRepository,
-    instanceStore,
+    instanceRepository,
     mediaAccessSecret,
   };
 }

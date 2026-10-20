@@ -24,6 +24,27 @@ const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...new Array(300).fil
 let app: FastifyInstance;
 let services: ReturnType<typeof createAppServices>;
 
+/**
+ * Seed an instance through the real repository.
+ *
+ * Fixtures jump straight to the wanted status via the repository. The state machine is deliberately
+ * NOT consulted: these tests are about evidence upload, and walking claim -> start -> submit for every
+ * fixture would bury the assertion under lifecycle noise.
+ */
+async function seedInstance(familyId: string, status: string = 'doing'): Promise<string> {
+  const created = await services.instanceRepository.create({
+    familyId,
+    date: '2026-10-20',
+    title: '证据任务',
+    maxPoints: 3,
+    deadlineAt: new Date('2026-10-20T13:00:00.000Z'),
+  });
+  if (status !== 'open') {
+    await services.instanceRepository.updateStatus(created.id, 'open', status as never);
+  }
+  return created.id;
+}
+
 beforeEach(async () => {
   app = Fastify();
   services = createAppServices({ secret: JWT_SECRET });
@@ -112,13 +133,13 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('上传成功返回 201 与 media 对象(url / expireAt / sizeBytes 齐全)', async () => {
     const owner = await register('13700000001', '证据爸爸');
     const familyId = await createFamily(owner.token, '证据之家');
-    services.instanceStore.add({ id: 'inst-1', familyId, status: 'doing' });
+    const inst_1 = await seedInstance(familyId, 'doing');
 
-    const response = await upload({ token: owner.token, familyId, instanceId: 'inst-1' });
+    const response = await upload({ token: owner.token, familyId, instanceId: inst_1 });
     expect(response.statusCode, response.body).toBe(201);
 
     const { media } = response.json() as { media: Record<string, unknown> };
-    expect(media).toMatchObject({ refType: 'instance', refId: 'inst-1', type: 'image', uploaderId: owner.userId });
+    expect(media).toMatchObject({ refType: 'instance', refId: inst_1, type: 'image', uploaderId: owner.userId });
     expect(typeof media.url).toBe('string');
     expect(typeof media.expireAt).toBe('string');
     expect(media.sizeBytes).toBe(JPEG_BYTES.byteLength);
@@ -135,9 +156,9 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('★ 路由在契约要求的位置上(单测抓不到路径前缀错误)', async () => {
     const owner = await register('13700000002', '路径爸爸');
     const familyId = await createFamily(owner.token, '路径之家');
-    services.instanceStore.add({ id: 'inst-2', familyId, status: 'doing' });
+    const inst_2 = await seedInstance(familyId, 'doing');
 
-    const response = await upload({ token: owner.token, familyId, instanceId: 'inst-2' });
+    const response = await upload({ token: owner.token, familyId, instanceId: inst_2 });
     // 404 意味着路径错了或路由没挂上;这条断言就是为了在那种情况下立刻说话
     expect(response.statusCode, `路由不在契约要求的位置:${response.body}`).not.toBe(404);
   });
@@ -145,7 +166,7 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('无 token -> 401,且不写存储', async () => {
     const owner = await register('13700000003', '无票爸爸');
     const familyId = await createFamily(owner.token, '无票之家');
-    services.instanceStore.add({ id: 'inst-3', familyId, status: 'doing' });
+    const inst_3 = await seedInstance(familyId, 'doing');
 
     const { payload, headers } = multipartBody(JPEG_BYTES);
     const response = await app.inject({
@@ -162,11 +183,11 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('外人上传 -> 403,且与"家庭不存在"同码(防探测)', async () => {
     const owner = await register('13700000004', '主人');
     const familyId = await createFamily(owner.token, '有主的家');
-    services.instanceStore.add({ id: 'inst-4', familyId, status: 'doing' });
+    const inst_4 = await seedInstance(familyId, 'doing');
 
     const stranger = await register('13700000005', '外人');
-    const denied = await upload({ token: stranger.token, familyId, instanceId: 'inst-4' });
-    const unknown = await upload({ token: stranger.token, familyId: 'no-such-family', instanceId: 'inst-4' });
+    const denied = await upload({ token: stranger.token, familyId, instanceId: inst_4 });
+    const unknown = await upload({ token: stranger.token, familyId: 'no-such-family', instanceId: inst_4 });
 
     expect(denied.statusCode).toBe(403);
     expect(unknown.statusCode).toBe(403);
@@ -177,10 +198,10 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('任务已结算 -> 409,消息告诉用户该找谁', async () => {
     const owner = await register('13700000006', '结算爸爸');
     const familyId = await createFamily(owner.token, '结算之家');
-    services.instanceStore.add({ id: 'inst-5', familyId, status: 'doing' });
-    services.instanceStore.setStatus('inst-5', 'done');
+    const inst_5 = await seedInstance(familyId, 'doing');
+    await services.instanceRepository.updateStatus(inst_5, 'doing', 'done' as never);
 
-    const response = await upload({ token: owner.token, familyId, instanceId: 'inst-5' });
+    const response = await upload({ token: owner.token, familyId, instanceId: inst_5 });
     expect(response.statusCode).toBe(409);
     const body = response.json() as { error: string; message: string };
     expect(body.error).toBe('instance_already_settled');
@@ -190,7 +211,7 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('没有文件部分 -> 400 no_file(与"文件不合法"是不同的错误)', async () => {
     const owner = await register('13700000007', '空手爸爸');
     const familyId = await createFamily(owner.token, '空手之家');
-    services.instanceStore.add({ id: 'inst-6', familyId, status: 'doing' });
+    const inst_6 = await seedInstance(familyId, 'doing');
 
     const boundary = '----emptyboundary';
     const empty = Buffer.from(`--${boundary}--\r\n`, 'utf8');
@@ -211,12 +232,12 @@ describe('POST /api/families/:fid/instances/:iid/proof', () => {
   it('不认识的字节 -> 415', async () => {
     const owner = await register('13700000008', '乱传爸爸');
     const familyId = await createFamily(owner.token, '乱传之家');
-    services.instanceStore.add({ id: 'inst-7', familyId, status: 'doing' });
+    const inst_7 = await seedInstance(familyId, 'doing');
 
     const response = await upload({
       token: owner.token,
       familyId,
-      instanceId: 'inst-7',
+      instanceId: inst_7,
       bytes: new Uint8Array([0x4d, 0x5a, 0x90, 0x00]),
       filename: 'virus.exe',
       contentType: 'application/octet-stream',

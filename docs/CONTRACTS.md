@@ -34,6 +34,65 @@
 | 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
 | 14 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
 | 15 | GET | `/api/families/:fid/points/:uid` | header: Bearer(须为该家庭成员) | `{earned, available, spent, frozen}` | **已定稿(已实现)** | 发起人(2026-10-15 认领) | 2026-10-15 |
+| 16 | GET | `/api/families/:fid/instances?date=YYYY-MM-DD` | header: Bearer(须为该家庭成员) | `{instances:[InstanceSummary]}` | **已定稿(已实现)** | 发起人(M1,2026-10-20) | 2026-10-20 |
+| 17 | GET | `/api/families/:fid/instances/:iid` | header: Bearer(须为该家庭成员) | `{instance:InstanceDetail}` | **已定稿(已实现)** | 发起人(M1,2026-10-20) | 2026-10-20 |
+
+### 任务实例读接口交付说明(#16/#17,2026-10-20)
+
+**为什么要有这两个**:`#10` 上传证据要挂到实例上、`#12` 抢单要选实例、`#13` 评分要看实例 ——
+但它们之前**没有任何读接口**。前端"今日任务"页也没东西可读。
+
+**出参形状(冻结)**:
+
+```jsonc
+// InstanceSummary(#16 列表里的每一项)
+{
+  "id": "…",
+  "templateId": "…" | null,      // null = 临时任务
+  "title": "洗碗",
+  "date": "2026-10-20",          // 家庭时区下的自然日
+  "maxPoints": 3,
+  "status": "open",              // 见下面状态机
+  "deadlineAt": "2026-10-20T13:00:00.000Z",
+  "claimerId": "…" | null,
+  "claimedAt": "…" | null,
+  "autoAssigned": false,
+  "finalPercent": null,
+  "finalPoints": null
+}
+
+// InstanceDetail(#17)= Summary + 结算信息
+{ ...Summary, "settledAt": "…"|null, "settledBy": "owner|others_avg|fallback_60"|null, "createdAt": "…" }
+```
+
+**状态机(唯一实现在 `apps/api/src/instances/service.ts`,任何路由不许自己改 `status`)**:
+
+```
+open ──claim──▶ claimed ──start──▶ doing ──submit──▶ pending_score ──settle──▶ done
+  │                 │                                                             ▲
+  │                 └─────────────────────────────────────────────────────────────┘ (兜底结算)
+  └── 到点无人接 ──▶ (自动指派,仍为 claimed,autoAssigned=true)
+
+pending_score ──reject──▶ rejected        (已结算的驳回,不可再改)
+任意未结算状态 ──abandon──▶ abandoned     (任务作废,记一次未履约)
+```
+
+| 从 | 允许到 | 说明 |
+|---|---|---|
+| `open` | `claimed`, `abandoned` | `claimed` 由 #12 抢单触发 |
+| `claimed` | `doing`, `open`, `abandoned` | 回 `open` = 15 分钟内无责退单(D2)或超时释放(D3) |
+| `doing` | `pending_score`, `open`, `abandoned` | `open` = 未完成被释放(D3) |
+| `pending_score` | `done`, `rejected` | 只能由 #14 结算触发 |
+| `done` / `rejected` / `abandoned` | **无**(终态) | 任何再流转 → **409 `invalid_status_transition`** |
+
+> ⚠️ **同一状态重复设置是幂等的,不算非法流转**(`doing → doing` 返回当前实例,不报错)。
+> 这不是疏漏:并发下两次相同请求不应把其中一个变成 500。
+> 真正的非法流转是"跳过中间态"(如 `open → done`),那必须 409。
+
+**授权**:与 `/api/families/:fid/**` 一致 —— 调用者必须是该家庭成员;
+非成员返回 **403 `not_a_member`**,未知家庭返回**同一个 403**(防探测,见 `#15` 的说明)。
+`:iid` 不存在或属于别的家庭 → **404 `instance_not_found`**,两者不区分。
+
 
 ### 证据上传与读取交付说明(#10 已实现,2026-10-15;读取补齐 2026-10-16)
 

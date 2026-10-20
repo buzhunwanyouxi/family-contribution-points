@@ -14,6 +14,7 @@ import { scoringRoutes } from './scoring.js';
 import { registerAuth } from './auth.js';
 import { registerFamily } from './family.js';
 import { registerPoints } from './points.js';
+import { registerInstances } from './instances.js';
 import { registerMedia } from './media.js';
 import { createAppServices } from '../composition.js';
 import type { AppServices } from '../composition.js';
@@ -64,6 +65,14 @@ export async function registerRoutes(
   // family repository because the four numbers live on `Membership`, and the ledger's rule is that
   // they are **forwarded**, never recomputed here.
   await registerPoints(app, { repository: services.familyRepository });
+
+  // M1 / instances -- GET /api/families/:fid/instances[/:iid] (CONTRACTS #16/#17).
+  // Same ordering rule again: it needs `app.requireAuth`. Registered BEFORE media so that a request
+  // for an instance never hits the multipart parser first.
+  await registerInstances(app, {
+    service: services.instanceService,
+    repository: services.familyRepository,
+  });
 
   // lane C / media (W1-F) -- POST .../instances/:iid/proof and GET /media/<key> (CONTRACTS #10).
   // Ordering matters twice over here: it needs `app.requireAuth` from registerAuth(), AND it

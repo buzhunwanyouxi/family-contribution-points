@@ -20,6 +20,27 @@ const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, ...new Array(300).fil
 let app: FastifyInstance;
 let services: ReturnType<typeof createAppServices>;
 
+/**
+ * Seed an instance through the real repository.
+ *
+ * Fixtures jump straight to the wanted status via the repository. The state machine is deliberately
+ * NOT consulted: these tests are about evidence upload, and walking claim -> start -> submit for every
+ * fixture would bury the assertion under lifecycle noise.
+ */
+async function seedInstance(familyId: string, status: string = 'doing'): Promise<string> {
+  const created = await services.instanceRepository.create({
+    familyId,
+    date: '2026-10-20',
+    title: '证据任务',
+    maxPoints: 3,
+    deadlineAt: new Date('2026-10-20T13:00:00.000Z'),
+  });
+  if (status !== 'open') {
+    await services.instanceRepository.updateStatus(created.id, 'open', status as never);
+  }
+  return created.id;
+}
+
 beforeEach(async () => {
   app = Fastify();
   services = createAppServices({ secret: JWT_SECRET });
@@ -80,10 +101,10 @@ describe('GET /media/<key>', () => {
   it('★ 往返:上传返回的 url 直接取回同一份字节(这正是浏览器做的事)', async () => {
     const owner = await register('13710000001', '读取爸爸');
     const familyId = await createFamily(owner.token, '读取之家');
-    services.instanceStore.add({ id: 'inst-r1', familyId, status: 'doing' });
+    const inst_r1 = await seedInstance(familyId, 'doing');
 
-    const media = await uploadProof(owner.token, familyId, 'inst-r1');
-    expect(media.url).toContain(`/media/${familyId}/inst-r1/${media.id}`);
+    const media = await uploadProof(owner.token, familyId, inst_r1);
+    expect(media.url).toContain(`/media/${familyId}/${inst_r1}/${media.id}`);
 
     // 关键:不额外补 Authorization —— 完全按前端 <img src> 的方式请求
     const read = await app.inject({ method: 'GET', url: media.url });
@@ -96,9 +117,9 @@ describe('GET /media/<key>', () => {
   it('响应禁止缓存(证据随时可能被删,缓存副本会活得比 72 小时久)', async () => {
     const owner = await register('13710000002', '缓存爸爸');
     const familyId = await createFamily(owner.token, '缓存之家');
-    services.instanceStore.add({ id: 'inst-r2', familyId, status: 'doing' });
+    const inst_r2 = await seedInstance(familyId, 'doing');
 
-    const media = await uploadProof(owner.token, familyId, 'inst-r2');
+    const media = await uploadProof(owner.token, familyId, inst_r2);
     const read = await app.inject({ method: 'GET', url: media.url });
     expect(read.headers['cache-control']).toContain('no-store');
     expect(read.headers['cache-control']).toContain('private');
@@ -107,10 +128,10 @@ describe('GET /media/<key>', () => {
   it('★ 签名不能跨文件复用:拿 A 的签名读 B 必须失败', async () => {
     const owner = await register('13710000003', '借用爸爸');
     const familyId = await createFamily(owner.token, '借用之家');
-    services.instanceStore.add({ id: 'inst-r3', familyId, status: 'doing' });
+    const inst_r3 = await seedInstance(familyId, 'doing');
 
-    const first = await uploadProof(owner.token, familyId, 'inst-r3');
-    const second = await uploadProof(owner.token, familyId, 'inst-r3');
+    const first = await uploadProof(owner.token, familyId, inst_r3);
+    const second = await uploadProof(owner.token, familyId, inst_r3);
     expect(first.id).not.toBe(second.id);
 
     // 把 A 的签名拼到 B 的路径上
@@ -122,9 +143,9 @@ describe('GET /media/<key>', () => {
   it('★ 改 exp 延长有效期会失效(签名覆盖了到期时间)', async () => {
     const owner = await register('13710000004', '延期爸爸');
     const familyId = await createFamily(owner.token, '延期之家');
-    services.instanceStore.add({ id: 'inst-r4', familyId, status: 'doing' });
+    const inst_r4 = await seedInstance(familyId, 'doing');
 
-    const media = await uploadProof(owner.token, familyId, 'inst-r4');
+    const media = await uploadProof(owner.token, familyId, inst_r4);
     const extended = media.access!.exp + 86_400;
     const read = await app.inject({
       method: 'GET',
@@ -136,9 +157,9 @@ describe('GET /media/<key>', () => {
   it('没有签名也没有 token -> 401', async () => {
     const owner = await register('13710000005', '无票爸爸');
     const familyId = await createFamily(owner.token, '无票之家');
-    services.instanceStore.add({ id: 'inst-r5', familyId, status: 'doing' });
+    const inst_r5 = await seedInstance(familyId, 'doing');
 
-    const media = await uploadProof(owner.token, familyId, 'inst-r5');
+    const media = await uploadProof(owner.token, familyId, inst_r5);
     const bare = media.url.split('?')[0]!;
     const read = await app.inject({ method: 'GET', url: bare });
     expect(read.statusCode).toBe(401);
@@ -147,8 +168,8 @@ describe('GET /media/<key>', () => {
   it('★ 用 token 但属于别人家 -> 403(登录了也不等于能看别人家的证据)', async () => {
     const owner = await register('13710000006', '主人');
     const familyId = await createFamily(owner.token, '有主的家');
-    services.instanceStore.add({ id: 'inst-r6', familyId, status: 'doing' });
-    const media = await uploadProof(owner.token, familyId, 'inst-r6');
+    const inst_r6 = await seedInstance(familyId, 'doing');
+    const media = await uploadProof(owner.token, familyId, inst_r6);
 
     const stranger = await register('13710000007', '外人');
     const bare = media.url.split('?')[0]!;
@@ -163,8 +184,8 @@ describe('GET /media/<key>', () => {
   it('家庭成员用 token 也能读(下载按钮走的就是这条路)', async () => {
     const owner = await register('13710000008', '家里人');
     const familyId = await createFamily(owner.token, '温暖的家');
-    services.instanceStore.add({ id: 'inst-r7', familyId, status: 'doing' });
-    const media = await uploadProof(owner.token, familyId, 'inst-r7');
+    const inst_r7 = await seedInstance(familyId, 'doing');
+    const media = await uploadProof(owner.token, familyId, inst_r7);
 
     const bare = media.url.split('?')[0]!;
     const read = await app.inject({
@@ -179,8 +200,8 @@ describe('GET /media/<key>', () => {
   it('★ 上传返回的 url 必须"可直接请求",不能要求调用方再拼一次签名', async () => {
     const owner = await register('13710000011', '拼接爸爸');
     const familyId = await createFamily(owner.token, '拼接之家');
-    services.instanceStore.add({ id: 'inst-r10', familyId, status: 'doing' });
-    const media = await uploadProof(owner.token, familyId, 'inst-r10');
+    const inst_r10 = await seedInstance(familyId, 'doing');
+    const media = await uploadProof(owner.token, familyId, inst_r10);
 
     // 这条断言防的是一个真实踩过的坑:响应里同时给了 url 和 access,如果 url 还需要拼 access,
     // 那么"照着文档拼一次"的客户端会得到 ?exp=..&sig=..?exp=..&sig=.. —— 第二个 exp 变成
@@ -201,8 +222,8 @@ describe('GET /media/<key>', () => {
   it('download=1 -> attachment,并按类型给出文件名', async () => {
     const owner = await register('13710000009', '下载爸爸');
     const familyId = await createFamily(owner.token, '下载之家');
-    services.instanceStore.add({ id: 'inst-r8', familyId, status: 'doing' });
-    const media = await uploadProof(owner.token, familyId, 'inst-r8');
+    const inst_r8 = await seedInstance(familyId, 'doing');
+    const media = await uploadProof(owner.token, familyId, inst_r8);
 
     const read = await app.inject({ method: 'GET', url: `${media.url}&download=1` });
     expect(read.statusCode).toBe(200);
@@ -219,8 +240,8 @@ describe('GET /media/<key>', () => {
   it('过期后即使签名还有效也读不到(72 小时按读取时刻判定,不依赖删除任务跑没跑)', async () => {
     const owner = await register('13710000010', '到期爸爸');
     const familyId = await createFamily(owner.token, '到期之家');
-    services.instanceStore.add({ id: 'inst-r9', familyId, status: 'doing' });
-    const media = await uploadProof(owner.token, familyId, 'inst-r9');
+    const inst_r9 = await seedInstance(familyId, 'doing');
+    const media = await uploadProof(owner.token, familyId, inst_r9);
 
     // 把这一条记录的到期时间改到过去,模拟"72 小时到了但删除任务还没跑"
     const record = await services.mediaRepository.findById(media.id);

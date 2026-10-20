@@ -8,6 +8,7 @@
 
 | 日期时间 | 任务号 | 模块 | 操作者 | AI 工具 | 状态 | ops | report |
 |---|---|---|---|---|---|---|---|
+| 2026-10-20 22:30 | W1-M1-INSTANCES | instances(M1 · TaskInstance 地基 + #16/#17) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2230_W1-M1-INSTANCES_state-machine.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-20 21:30 | W1-MODULES | docs(MVP 模块划分与分工调整) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2130_W1-MODULES_split-and-assign.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-20 21:00 | W1-NOTIFY | docs(把协作任务真正发出去) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2100_W1-NOTIFY_send-tasks-out.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-16 21:00 | W1-RULE-ADOPT-3 | docs(采纳第 3 条 spec-gap:第 12 步 + 同步 OWNERS) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-16-2100_W1-RULE-ADOPT-3_step12-owners.md) | — (第 7、8、8.5 节含交接与未验证维度) |
