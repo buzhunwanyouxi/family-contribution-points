@@ -133,6 +133,45 @@ export function createInMemoryInstanceRepository(
       return clone(updated);
     },
 
+    /**
+     * Idempotent by `(templateId, date)`.
+     *
+     * The lookup and the insert happen in one synchronous block with no `await` between them, so two
+     * concurrent callers cannot both observe "absent". In a real database the equivalent guarantee comes
+     * from a unique index -- which is why `schema.prisma` carries `@@unique([templateId, date])`, and why
+     * the Prisma adapter relies on the constraint rather than on a read-then-write.
+     */
+    async ensureInstance(
+      input: CreateInstanceInput & { templateId: string },
+    ): Promise<{ instance: TaskInstanceRecord; created: boolean }> {
+      for (const row of rows.values()) {
+        if (row.templateId === input.templateId && row.date === input.date) {
+          return { instance: clone(row), created: false };
+        }
+      }
+
+      const record: TaskInstanceRecord = {
+        id: newId(),
+        templateId: input.templateId,
+        familyId: input.familyId,
+        date: input.date,
+        title: input.title,
+        maxPoints: input.maxPoints,
+        status: 'open',
+        deadlineAt: input.deadlineAt,
+        claimerId: null,
+        claimedAt: null,
+        autoAssigned: false,
+        finalPercent: null,
+        finalPoints: null,
+        settledAt: null,
+        settledBy: null,
+        createdAt: new Date(),
+      };
+      rows.set(record.id, record);
+      return { instance: clone(record), created: true };
+    },
+
     count(): number {
       return rows.size;
     },

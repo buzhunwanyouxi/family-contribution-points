@@ -146,4 +146,23 @@ export interface InstanceRepository {
     instanceId: string,
     patch: SettlementPatch,
   ): Promise<TaskInstanceRecord | null>;
+
+  /**
+   * Create the instance for `(templateId, date)` **unless one already exists**.
+   *
+   * M3 needs this and `create` cannot serve it: generation is a scheduled job, and scheduled jobs get
+   * retried, run twice after a deploy, and occasionally run concurrently on two boxes. Calling `create`
+   * twice would file the same chore twice and a family would see 洗碗 listed two times with 6 points
+   * between them -- a data bug that is easy to create and annoying to explain.
+   *
+   * `created: false` means "somebody already generated this one"; that is success, not a conflict, so
+   * the caller must not treat it as an error.
+   *
+   * Only templated instances are covered. A temp task (C1-C5) has `templateId = null` and there is no
+   * natural key to be idempotent on -- which is correct, because a family may legitimately post two
+   * identical temp tasks on the same day.
+   */
+  ensureInstance(
+    input: CreateInstanceInput & { templateId: string },
+  ): Promise<{ instance: TaskInstanceRecord; created: boolean }>;
 }
