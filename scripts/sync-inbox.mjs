@@ -491,6 +491,8 @@ function renderInbox(login, items, sha) {
   lines.push('  5) 收工时要分别做五件事,不要用"跑测试"代替后面四件:');
   lines.push('     a. 验证代码:pnpm -r typecheck && pnpm --filter @fcp/api test,贴原始输出;');
   lines.push('     b. 验证输出:把你这轮产生的需求写进 docs/coordination/PENDING.json,跑 pnpm sync:inbox,提交生成物;');
+  lines.push('        ★ 同时更新 OWNERS.md 的进度 —— 改了哪个模块,就把那一行的『状态 / 最后更新 / 实测进度』改掉;');
+  lines.push('        (不更新的话,下一个人会照过期的认领表安排工作 —— 那比没有表更危险)');
   lines.push(`     c. 反查收件箱:重读 INBOX-${login}.md,找出"开始时间晚于我这轮开工"的条目(别人在我干活期间提的),念给我听;`);
   lines.push('     d. 检查解锁:看收件箱「谁在等你」一节,你做完的事有没有解除别人的 waiting_on,有就删掉它;');
   lines.push('     e. 记录规则缺口:这一轮有没有撞到"规则不够用"?有 → 按 docs/coordination/SPEC-GAP.md 提一条 kind:spec-gap');
@@ -558,7 +560,16 @@ function renderStatus(ledger, sha) {
  *
  * 只报警不失败(问题的严重度不足以拦住提交),但会打印出来。
  */
-const WRAP_UP_STEPS = ['验证代码', '验证输出', '反查收件箱', '检查解锁', '记录规则缺口'];
+const WRAP_UP_STEPS = [
+  '验证代码',
+  '验证输出',
+  '反查收件箱',
+  '检查解锁',
+  '记录规则缺口',
+  // 2026-10-16 新增(spec-gap #3 采纳后):改了模块代码就要更新认领表。
+  // 之前 PROMPT-TO-AI.md 里有这一条,AGENTS.md 与收件箱短提示词都没有 —— 又是"改了一处忘了另一处"。
+  '更新 OWNERS.md 的进度',
+];
 
 function checkWrapUpPromptConsistency(warnings) {
   const copies = [
@@ -573,7 +584,9 @@ function checkWrapUpPromptConsistency(warnings) {
       warnings.push(`${label} 不存在,无法核对收工清单一致性:${rel}`);
       continue;
     }
-    const text = readFileSync(file, 'utf8');
+    // Backticks are stripped before matching: the same instruction is written as `OWNERS.md` in one
+    // copy and plain OWNERS.md in another, and a formatting difference should not read as a missing step.
+    const text = readFileSync(file, 'utf8').replace(/`/g, '');
     const missing = WRAP_UP_STEPS.filter((step) => !text.includes(step));
     if (missing.length) {
       warnings.push(
