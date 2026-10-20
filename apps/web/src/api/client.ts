@@ -180,6 +180,36 @@ export const api = {
       `/api/families/${encodeURIComponent(familyId)}/invite`,
     );
   },
+
+  /**
+   * CONTRACTS #15 -- the member's four numbers.
+   *
+   * Before this existed the points page read whatever `/api/auth/me` happened to return at login, so
+   * the numbers on screen froze the moment the session started. The whole product is "points that
+   * change", so a stale four numbers is worse than no four numbers.
+   */
+  async points(familyId: string, userId: string): Promise<PointsResponse> {
+    if (USE_MOCK) {
+      await wait();
+      return mock.points(familyId, userId);
+    }
+    return request<PointsResponse>(
+      `/api/families/${encodeURIComponent(familyId)}/points/${encodeURIComponent(userId)}`,
+    );
+  },
+
+  /** CONTRACTS #16 -- one day's task instances. `date` is `YYYY-MM-DD` in the family's timezone. */
+  async instances(familyId: string, date: string): Promise<{ instances: InstanceSummary[] }> {
+    if (USE_MOCK) {
+      await wait();
+      return mock.instances(familyId, date);
+    }
+    return request<{ instances: InstanceSummary[] }>(
+      `/api/families/${encodeURIComponent(familyId)}/instances?date=${encodeURIComponent(date)}`,
+    );
+  },
 };
 
 type FamilySummaryList = import('./types').FamilySummary[];
+type PointsResponse = import('./types').PointsResponse;
+type InstanceSummary = import('./types').InstanceSummary;

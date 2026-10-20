@@ -348,6 +348,44 @@ body {
   padding: 18px 8px;
 }
 
+/*
+ * Task list (P03 今日任务, CONTRACTS #16).
+ *
+ * Each row is title + meta on one line, with the meta pushed right. `min-width: 0` on the title is what
+ * lets a long Chinese task name wrap instead of pushing the meta off the card.
+ */
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-sunken, rgba(0, 0, 0, 0.04));
+}
+
+.task-title {
+  min-width: 0;
+  font-size: 15px;
+  word-break: break-word;
+}
+
+.task-meta {
+  flex-shrink: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .center-screen {
   min-height: 100vh;
   display: grid;

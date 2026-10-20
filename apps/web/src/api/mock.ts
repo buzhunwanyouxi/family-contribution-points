@@ -10,8 +10,10 @@ import type {
   FamilyInviteView,
   FamilyResult,
   FamilySummary,
+  InstanceSummary,
   MemberSummary,
   MeResult,
+  PointsResponse,
   UserSummary,
 } from './types';
 
@@ -223,6 +225,57 @@ export async function invite(familyId: string): Promise<FamilyInviteView> {
   };
   state.invites[familyId] = created;
   return created;
+}
+
+/**
+ * CONTRACTS #15 -- the four numbers.
+ *
+ * Read from the mock family the session belongs to, so the page exercises the same code path in mock
+ * mode. Note this returns the **wire** shape (four fields, no `spendable`) on purpose: `spendable` is
+ * a UI derivation and the mock must not quietly become the place it comes from.
+ */
+export async function points(familyId: string, userId: string): Promise<PointsResponse> {
+  const user = requireSession();
+  if (user.id !== userId) {
+    // Mirrors the real endpoint: a member may read a *sibling's* numbers, so this is not a permission
+    // failure -- but the mock has no sibling accounts, so an unknown id means "not in this family".
+    const error = new Error('你不是这个家庭的成员');
+    (error as Error & { code?: string }).code = 'not_a_member';
+    throw error;
+  }
+  const family = state.families.find((f) => f.id === familyId);
+  if (!family) {
+    const error = new Error('你不是这个家庭的成员');
+    (error as Error & { code?: string }).code = 'not_a_member';
+    throw error;
+  }
+  return {
+    earned: family.earnedPoints,
+    available: family.points,
+    spent: family.spentPoints,
+    frozen: family.frozenPoints,
+  };
+}
+
+/**
+ * CONTRACTS #16 -- one day's instances.
+ *
+ * Returns an empty list rather than inventing tasks: the mock cannot know what a family's template
+ * would have generated, and fake tasks would make the "today" screen look finished when the real
+ * generation job (M3) does not exist yet.
+ */
+export async function instances(
+  familyId: string,
+  _date: string,
+): Promise<{ instances: InstanceSummary[] }> {
+  requireSession();
+  const family = state.families.find((f) => f.id === familyId);
+  if (!family) {
+    const error = new Error('你不是这个家庭的成员');
+    (error as Error & { code?: string }).code = 'not_a_member';
+    throw error;
+  }
+  return { instances: [] };
 }
 
 /** Test seam: reset the mock between runs. */
