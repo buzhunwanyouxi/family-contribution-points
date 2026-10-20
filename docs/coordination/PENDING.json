@@ -41,19 +41,6 @@
   ],
   "items": [
     {
-      "id": "auth-401-wording",
-      "title": "401 文案:缺少 token 时也说\"登录已过期\"",
-      "to": [
-        "sun-521-s"
-      ],
-      "kind": "task",
-      "since": "2026-10-12T05:22:09Z",
-      "source": "https://github.com/buzhunwanyouxi/family-contribution-points/pull/1#issuecomment-6118267317",
-      "action": "按 logReason 分流文案(缺 token → \"请先登录\";其余 → 保持\"登录已过期\"),或明确回复\"不改\"以便标为已知取舍",
-      "needs": "AI 可直接开工",
-      "note": "低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可;📣 已发通知:Issue #5(2026-10-20,指派给 sun-521-s,含 2 处测试断言的提醒)"
-    },
-    {
       "id": "family-unlock-for-frontend",
       "title": "family 模块合并后,前端可以切掉 Mock 走真实接口",
       "to": [
@@ -93,17 +80,29 @@
       "note": "GitHub 没有私信 API;微信/短信要另建常驻服务,暂不做"
     },
     {
-      "id": "m2-task-template-crud",
-      "title": "M2:固定任务模板 CRUD(#11,B1-B8)—— 唯一能完全并行开工的模块",
+      "id": "specgap-exclusive-dir-new-files",
+      "title": "独占目录规则没区分\"新建文件\"与\"修改既有文件\",在别人目录里新建文件时不知道该不该先找归属人",
       "to": [
-        "sun-521-s"
+        "buzhunwanyouxi"
       ],
-      "kind": "task",
-      "since": "2026-10-20T11:12:00Z",
-      "source": "docs/coordination/MVP-MODULES.md#m2--固定任务模板-crud11b1b8",
-      "action": "新建 apps/api/src/template/(types/repository/service/repeat/errors + 测试),实现 POST /api/families/:fid/templates 与列表接口。写代码前先补 CONTRACTS.md 的 #11 细项与 #18",
-      "needs": "AI 可直接开工",
-      "note": "★ 为什么是你:它不依赖 M1(任务实例),是六个模块里唯一能立刻并行的;新建目录不碰任何既有代码;核心是纯函数 repeat.ts,与你在 auth 写的 identifiers/jwt 同类。判据:非 owner → 403;maxPoints 缺失或 ≤0 → 400;repeatRule 非法 → 400;weekly:7 = 周日;monthly:31 在 2 月不生成(而不是报错);暂停后不在活跃列表但历史保留。📣 Issue #8(已指派)。OPENERS 里 task-template 行已标『进行中 + sun-521-s + 2026-10-20』,锁在你这"
+      "kind": "spec-gap",
+      "hit_at": "2026-10-20T11:20:00Z",
+      "current_spec": "docs/ai-logs/OWNERS.md 人员对照表「独占目录」列 + docs/PROJECT_GUIDE.md 14.5 规则 2(共享文件串行)",
+      "proposed": "补一条判定:在别人独占目录里**新建**文件不算冲突,只需在当轮 ops 日志显著声明、并在 PR 描述里点名请归属人复核;修改或删除既有文件仍须先沟通。理由:独占目录的本意是防止两人同时改同一批代码,而新建文件的冲突面为 0",
+      "trigger": "M2 要求在 apps/api/src/routes/ 下新建 templates.ts 并在 routes/index.ts 注册,而 OWNERS.md 把 routes/** 归发起人独占、PROJECT_GUIDE 14.5 又把 routes/index.ts 列为共享文件。两份文档对同一目录的结论不同,我无法判断该自己写还是请归属人写",
+      "evidence": "docs/coordination/MVP-MODULES.md 的 M2 一节(要求新增 routes/templates.ts)与 docs/ai-logs/OWNERS.md 人员对照表(routes/** 归 C)冲突;本轮的实际处理与自证见 docs/ai-logs/ops/2026-10-20-2310_W1-M2_template-crud.md 第 5 节",
+      "change_kind": "add",
+      "adds": [
+        "在他人独占目录内**新建**文件:允许,但须在 ops 日志显著声明并在 PR 里点名归属人复核",
+        "在他人独占目录内**修改或删除**既有文件:仍须先沟通(与现行规则一致,只是把两种情形分开说)"
+      ],
+      "modifies": [],
+      "removes": [],
+      "needs": "人拍板",
+      "status": "pending-human",
+      "since": "2026-10-20T11:40:00Z",
+      "source": "docs/ai-logs/ops/2026-10-20-2310_W1-M2_template-crud.md#5-阻塞与风险需要谁配合",
+      "action": "请确认这条缺口是否成立;成立则采纳为 OWNERS.md 人员对照表或 PROJECT_GUIDE 14.5 的一条补充"
     }
   ]
 }

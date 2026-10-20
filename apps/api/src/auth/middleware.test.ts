@@ -72,9 +72,20 @@ describe('createRequireAuth', () => {
     const { reply, state } = fakeReply();
     await requireAuth(request, reply);
     expect(state.status).toBe(401);
-    // same body shape as every other auth failure: machine code + Chinese message
-    expect(state.body).toEqual({ error: 'unauthorized', message: '登录已过期,请重新登录' });
+    // same body shape as every other auth failure: machine code + Chinese message.
+    // "请先登录", not "登录已过期": a first-time visitor never had a session to expire (Issue #5).
+    expect(state.body).toEqual({ error: 'unauthorized', message: '请先登录' });
     expect(request.authUser).toBeUndefined();
+  });
+
+  it('keeps "登录已过期" for a token that was sent but is unusable', async () => {
+    // The opposite half of Issue #5: splitting the wording must not flatten both cases into one.
+    // A token WAS presented here, so "expired / invalid" is the truthful message.
+    const request = fakeRequest('Bearer nonsense');
+    const { reply, state } = fakeReply();
+    await requireAuth(request, reply);
+    expect(state.status).toBe(401);
+    expect(state.body).toEqual({ error: 'unauthorized', message: '登录已过期,请重新登录' });
   });
 
   it('answers 401 for a malformed or wrongly-signed token, without throwing', async () => {

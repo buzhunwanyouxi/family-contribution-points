@@ -16,6 +16,7 @@ import { registerFamily } from './family.js';
 import { registerPoints } from './points.js';
 import { registerInstances } from './instances.js';
 import { registerMedia } from './media.js';
+import { registerTemplates } from './templates.js';
 import { createAppServices } from '../composition.js';
 import type { AppServices } from '../composition.js';
 
@@ -85,4 +86,13 @@ export async function registerRoutes(
       ? {}
       : { accessSecret: services.mediaAccessSecret }),
   });
+
+  // lane A / M2 template (W2-01) -- POST + GET /api/families/:fid/templates and
+  // PATCH /api/families/:fid/templates/:tid (CONTRACTS #11 / #18 / #19).
+  //
+  // Two reasons for this position: it needs `app.requireAuth` from registerAuth(), and it needs the
+  // family repository as its membership reader -- B1 says only the family **owner** may write, and
+  // that role lives on `Membership`. Template storage stays inside the module: it shares no state with
+  // M1's instances, which is exactly why this module could be built in parallel.
+  await registerTemplates(app, { memberships: services.familyRepository });
 }
