@@ -51,6 +51,12 @@ export interface PrismaInstanceRow {
 export interface PrismaTaskInstanceDelegate {
   create(args: { data: Record<string, unknown> }): Promise<PrismaInstanceRow>;
   findUnique(args: { where: { id: string } }): Promise<PrismaInstanceRow | null>;
+  /**
+   * Used only to read back the winning row after a unique-constraint violation, and it must accept the
+   * composite `(templateId, date)` filter -- `findUnique` cannot, because the generated Prisma type
+   * requires the `@@unique` to be declared as a named compound key for that.
+   */
+  findFirst(args: { where: Record<string, unknown> }): Promise<PrismaInstanceRow | null>;
   findMany(args: {
     where: Record<string, unknown>;
     orderBy?: Record<string, unknown>;
@@ -200,6 +206,59 @@ export function createPrismaInstanceRepository(client: PrismaInstanceClient): In
       });
       if (result.count !== 1) return null;
       return findById(instanceId);
+    },
+
+    /**
+     * Idempotent by `(templateId, date)`, and deliberately **not** a read-then-write.
+     *
+     * A `findFirst` followed by `create` would leave exactly the gap that bit claim/settle: two
+     * concurrent generation runs both see "absent" and both insert. The database's unique index on
+     * `(templateId, date)` is the real guarantee, so this catches the duplicate violation and re-reads
+     * instead of checking first.
+     *
+     * `P2002` is Prisma's unique-constraint code. Catching by code rather than by matching the message
+     * keeps this working when the message text changes between Prisma versions.
+     */
+    async ensureInstance(
+      input: CreateInstanceInput & { templateId: string },
+    ): Promise<{ instance: TaskInstanceRecord; created: boolean }> {
+      const date = dateToRow(input.date);
+      try {
+        const row = await delegate.create({
+          data: {
+            templateId: input.templateId,
+            familyId: input.familyId,
+            date,
+            title: input.title,
+            maxPoints: input.maxPoints,
+            deadlineAt: input.deadlineAt,
+            status: 'open',
+            claimerId: null,
+            claimedAt: null,
+            autoAssigned: false,
+            finalPercent: null,
+            finalPoints: null,
+            settledAt: null,
+            settledBy: null,
+          },
+        });
+        return { instance: toRecord(row), created: true };
+      } catch (error) {
+        const code = (error as { code?: unknown }).code;
+        if (code !== 'P2002') throw error;
+
+        // Lost the race (or ran twice) -- the row exists, which is the desired end state.
+        const existing = await delegate.findFirst({
+          where: { templateId: input.templateId, date },
+        });
+        if (existing === null) {
+          // The constraint fired but the row cannot be read back. Rethrowing the original error is
+          // better than inventing one: it means the schema and the query disagree, and that is a bug
+          // worth seeing rather than swallowing.
+          throw error;
+        }
+        return { instance: toRecord(existing), created: false };
+      }
     },
   };
 }

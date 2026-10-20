@@ -100,6 +100,14 @@ model TaskInstance {
   proof  ProofMedia[]
 
   @@index([familyId, date])
+
+  // M3 幂等的**唯一**保证。生成是定时作业:会重试、会在部署后跑两次、也可能两台机器同时跑。
+  // 只靠"先查再插"会像 claim/settle 那样留出竞争窗口,所以约束必须落在数据库上。
+  //
+  // templateId 可空(临时任务没有模板):Postgres 里 NULL 之间互不相等,
+  // 所以同一天可以存在多条 templateId 为空的临时任务 —— 这正是想要的,
+  // 因为一家人完全可以在同一天发两次"倒垃圾"。
+  @@unique([templateId, date])
 }
 
 model ProofMedia {
