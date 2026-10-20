@@ -91,6 +91,29 @@
       "action": "知悉:所有'要人拍板'的事都靠 GitHub @ + 指派触发邮件;不要把协作需求只发在微信里,那等于没发",
       "needs": "知悉即可",
       "note": "GitHub 没有私信 API;微信/短信要另建常驻服务,暂不做"
+    },
+    {
+      "id": "specgap-owners-progress-not-in-checklist",
+      "title": "收工清单只要求更新 PENDING.json,没要求更新 OWNERS.md 的模块进度 —— 于是认领表必然过期",
+      "to": [
+        "buzhunwanyouxi"
+      ],
+      "kind": "spec-gap",
+      "hit_at": "2026-10-16T12:40:00Z",
+      "source": "docs/ai-logs/ops/2026-10-16-2040_W1-DOCS-SYNC_owners-roadmap.md#8--我在别人代码里发现的问题",
+      "current_spec": "AGENTS.md 三、固定动作 第 12 步:「验证输出 + 移出 PENDING —— 把本轮产生的需求写进 PENDING.json;做完的待办删掉;跑 pnpm sync:inbox 并提交生成物」。全文没有任何一步要求「更新 OWNERS.md 里对应模块的状态、进度数字与最后更新日期」",
+      "proposed": "第 12 步补一项:改了某个模块的代码 → 同步更新 OWNERS.md 该行的「状态 / 最后更新 / 实测进度」。理由是把「谁负责」与「做到哪」放在同一张表里才有意义;分开维护必然漂移",
+      "trigger": "2026-10-16 有人照 OWNERS.md 安排工作,而表中 points 与 media-proof 早已完成、web-app 早就有测试 —— 三处状态全是旧的。查因发现:前两轮各自新增了 routes/points.ts、routes/media.ts、media/access.ts 等文件,加起来 7 个新文件、约 100 个用例,却没有任何一步要求把这些记进认领表",
+      "evidence": "ops/2026-10-16-2040_W1-DOCS-SYNC_owners-roadmap.md 第 8 节:「上一轮我建了 routes/points.ts、routes/media.ts,却没把它们登记进 OWNERS.md;给 media 加了 5 个文件、给 points 加了 2 个,模块表里的数字全部过期」。另:本轮为核对真实进度,必须手动跑一次 vitest 取数 —— 因为文档里没有任何可信数字",
+      "change_kind": "add",
+      "adds": [
+        "AGENTS.md 三、固定动作 第 12 步:新增「更新 OWNERS.md 对应模块的状态与最后更新日期」"
+      ],
+      "needs": "人拍板",
+      "status": "pending-human",
+      "since": "2026-10-16T12:40:00Z",
+      "action": "请确认这条缺口是否成立;成立则采纳为规范条款。注意:本条的边界是「登记状态」,不是「改排期」—— ROADMAP.md 的排期仍归人类",
+      "note": "★ 已先做了止血:本轮给 OWNERS.md 加了「最后更新」列与「超 14 天未更新视为已失联」的判据。但那只解决「能不能看出过期」,没解决「谁负责让它不过期」—— 后者才是本条要的规则"
     }
   ]
 }
