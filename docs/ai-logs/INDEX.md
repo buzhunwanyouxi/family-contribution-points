@@ -8,6 +8,7 @@
 
 | 日期时间 | 任务号 | 模块 | 操作者 | AI 工具 | 状态 | ops | report |
 |---|---|---|---|---|---|---|---|
+| 2026-10-20 23:10 | W1-M2 | auth(401 文案)+ template(M2 `#11`/`#18`/`#19`) | Miao(`sun-521-s`) | DSH | ✅ 完成(PR 待合并) | [ops](ops/2026-10-20-2310_W1-M2_template-crud.md) | [report](reports/2026-10-20-2310_W1-M2_template-crud.md) |
 | 2026-10-20 21:30 | W1-MODULES | docs(MVP 模块划分与分工调整) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2130_W1-MODULES_split-and-assign.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-20 21:00 | W1-NOTIFY | docs(把协作任务真正发出去) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2100_W1-NOTIFY_send-tasks-out.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-16 21:00 | W1-RULE-ADOPT-3 | docs(采纳第 3 条 spec-gap:第 12 步 + 同步 OWNERS) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-16-2100_W1-RULE-ADOPT-3_step12-owners.md) | — (第 7、8、8.5 节含交接与未验证维度) |

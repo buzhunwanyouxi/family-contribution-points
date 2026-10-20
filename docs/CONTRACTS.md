@@ -29,11 +29,66 @@
 | 9 | GET | `/api/families/:fid/members` | header: Bearer | `{members:[MemberSummary]}` | **已定稿(已实现)** | 车道 C 代拟 / 车道 B 实现 | 2026-10-11 |
 | 10 | POST | `/api/families/:fid/instances/:iid/proof` | multipart:`file` | `{media:ProofMedia}` | **已定稿(已实现)** | 发起人(2026-10-15 实现) | 2026-10-15 |
 | 10b | GET | `/api/families/:fid/invite` | header: Bearer(须为 owner/admin) | `{inviteCode, inviteExpireAt, qrPayload}` | **已定稿(已实现)** | 发起人(2026-10-13 认领) | 2026-10-13 |
-| 11 | POST | `/api/families/:fid/templates` | 固定任务字段 | `{template}` | 待认领 | — | — |
+| 11 | POST | `/api/families/:fid/templates` | `{title, timeOfDay, repeatRule, maxPoints, description?, assignMode?, claimerScope?, mustBeClaimed?, remindBeforeMin?}` —— 须为 **owner** | `{template:TemplateSummary}` | **已定稿(已实现)** | 车道 A(2026-10-20 实现) | 2026-10-20 |
 | 12 | POST | `/api/families/:fid/instances/:iid/claim` | — | `{instance}` | 待认领 | — | — |
 | 13 | POST | `/api/families/:fid/instances/:iid/scores` | `{percent}` | `{score}` | 待认领 | — | — |
 | 14 | POST | `/api/families/:fid/instances/:iid/settle` | `{force?:bool}` | `{percent, points, settledBy}` | 待认领 | — | — |
 | 15 | GET | `/api/families/:fid/points/:uid` | header: Bearer(须为该家庭成员) | `{earned, available, spent, frozen}` | **已定稿(已实现)** | 发起人(2026-10-15 认领) | 2026-10-15 |
+| 18 | GET | `/api/families/:fid/templates?status=active/paused/archived/all` | header: Bearer(须为该家庭成员);`status` 缺省 = `active` | `{templates:[TemplateSummary]}` | **已定稿(已实现)** | 车道 A(M2) | 2026-10-20 |
+| 19 | PATCH | `/api/families/:fid/templates/:tid` | `{status: active/paused}` —— 须为 **owner**;`archived` → 400 `invalid_status_transition` | `{template:TemplateSummary}` | **已定稿(已实现)** | 车道 A(M2 补充) | 2026-10-20 |
+
+> **编号说明**:`#16` / `#17` 归 M1(`TaskInstance` 的两条读接口),按 `MVP-MODULES.md` 第 3 节由 M1 负责人登记,目前尚未写入本表;
+> `#18` / `#19` 由 M2(车道 A)于 2026-10-20 登记。**编号不连续是正常的** —— 每个模块只登记自己的行。
+
+### 固定任务模板交付说明(#11 / #18 / #19,2026-10-20,车道 A = M2)
+
+实现落点:`apps/api/src/template/`(`types` / `errors` / **`repeat`** / `repository` / `service` / `index`)
++ 路由 `apps/api/src/routes/templates.ts`;`routes/index.ts` **追加 1 行**挂载(共享文件,已在当轮 ops 日志声明)。
+
+**`TemplateSummary`(冻结)**:
+
+```jsonc
+{
+  "id": "…", "familyId": "…", "title": "洗碗",
+  "description": "可选;缺省时整个字段**省略**(不是 null)",
+  "timeOfDay": "14:00",
+  "repeatRule": "daily | weekly:1,3,5 | monthly:1",
+  "maxPoints": 3,
+  "assignMode": "claim | rotate",
+  "claimerScope": "all | children | specific",
+  "mustBeClaimed": true,
+  "remindBeforeMin": 30,
+  "status": "active | paused | archived",
+  "createdAt": "2026-10-20T12:00:00.000Z"
+}
+```
+
+**规则落点(`PROJECT_GUIDE` 4.2)**:
+
+| 规则 | 落点 | 判据 |
+|---|---|---|
+| B1 仅创始人可写 | `service.ts` `requireOwner()` | 非 owner → 403 `not_owner`;**且先于字段校验**(否则成员能用 400 探出必填项);非成员 → 403 `not_a_member` |
+| B2 必须有 `maxPoints` 且 > 0 | `normalizeCreateTemplateInput()` | 缺失 / 0 / 负数 / NaN → 400 `validation_error` |
+| B3 提醒默认 30 分钟 | 同上 | 缺省 30;`0` 合法(准点提醒);上限 1440 |
+| B4 必须有人接取 | 同上 | 缺省 `true` |
+| B5 接取模式 | 同上 | `claim` / `rotate`,缺省 `claim` |
+| B6 接取范围 | 同上 | `all` / `children` / `specific`,缺省 `all` |
+| B7 暂停 / 恢复,历史保留 | `setTemplateStatus()` | 暂停后默认列表不含它、`?status=all` 仍在;重复暂停幂等 |
+| B8 节假日 / 寒暑假任务表 | **未实现** | schema 无对应字段;未做原因见本轮 ops 日志第 4 节 |
+
+**`repeatRule` 语义(最容易写错的两处)**:`weekly:7` = **周日**(ISO:1=周一 … 7=周日);
+`monthly:31` 在 2 月**不生成、也不报错**(不是"顺延到月末")。纯函数在 `template/repeat.ts`。
+
+**错误码(前端按码分支,不要按文案)**:
+
+| HTTP | `error` | 什么时候 |
+|---|---|---|
+| 400 | `validation_error` | 字段不合法(`details` 数组给出 `path`) |
+| 400 | `invalid_repeat_rule` | `repeatRule` 读不懂 —— 独立码,便于前端直接重开选择器 |
+| 400 | `invalid_status_transition` | 想改成 `archived` 等 M2 不允许的目标 |
+| 403 | `not_a_member` | 不是该家庭成员;**与"家庭不存在"同码**,防探测 |
+| 403 | `not_owner` | 是成员但不是创始人(B1) |
+| 404 | `template_not_found` | id 不存在,**或属于别的家庭**(同码,防探测) |
 
 ### 证据上传与读取交付说明(#10 已实现,2026-10-15;读取补齐 2026-10-16)
 

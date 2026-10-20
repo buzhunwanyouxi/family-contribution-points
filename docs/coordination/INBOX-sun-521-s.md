@@ -3,25 +3,14 @@
 > ⚠️ **本文件由 `scripts/sync-inbox.mjs` 自动生成,不要手工编辑。**
 > 要新增/移除待办,请改 [`PENDING.json`](PENDING.json);要改权威内容,请改 `source` 指向的那份文档。
 
-**最后生成**:2026-10-20 19:13 @ `30d889e`  ·  **你现在必须知道的**:2 件开工
+**最后生成**:2026-10-20 19:26 @ `c14d4b3`  ·  **你现在必须知道的**:暂无待办
 
 ---
 
-### 1. 401 文案:缺少 token 时也说"登录已过期"
+## 你现在没有待办
 
-- **开工**:按 logReason 分流文案(缺 token → "请先登录";其余 → 保持"登录已过期"),或明确回复"不改"以便标为已知取舍
-- **从此刻起有效**:2026-10-12T05:22:09Z
-- **权威出处**:https://github.com/buzhunwanyouxi/family-contribution-points/pull/1#issuecomment-6118267317
-- **需要谁**:AI 可直接开工
-- **备注**:低危文案问题,不阻塞任何功能;做 W1-01 找回密码时顺手改即可;📣 已发通知:Issue #5(2026-10-20,指派给 sun-521-s,含 2 处测试断言的提醒)
-
-### 2. M2:固定任务模板 CRUD(#11,B1-B8)—— 唯一能完全并行开工的模块
-
-- **开工**:新建 apps/api/src/template/(types/repository/service/repeat/errors + 测试),实现 POST /api/families/:fid/templates 与列表接口。写代码前先补 CONTRACTS.md 的 #11 细项与 #18
-- **从此刻起有效**:2026-10-20T11:12:00Z
-- **权威出处**:docs/coordination/MVP-MODULES.md#m2--固定任务模板-crud11b1b8
-- **需要谁**:AI 可直接开工
-- **备注**:★ 为什么是你:它不依赖 M1(任务实例),是六个模块里唯一能立刻并行的;新建目录不碰任何既有代码;核心是纯函数 repeat.ts,与你在 auth 写的 identifiers/jwt 同类。判据:非 owner → 403;maxPoints 缺失或 ≤0 → 400;repeatRule 非法 → 400;weekly:7 = 周日;monthly:31 在 2 月不生成(而不是报错);暂停后不在活跃列表但历史保留。📣 Issue #8(已指派)。OPENERS 里 task-template 行已标『进行中 + sun-521-s + 2026-10-20』,锁在你这
+这不代表没事可做 —— 去 [`OWNERS.md`](../ai-logs/OWNERS.md) 看有没有空闲模块可以认领,
+或去 [`ROADMAP.md`](../ROADMAP.md) 看有没有标记为"待认领"的行。
 
 ---
 
