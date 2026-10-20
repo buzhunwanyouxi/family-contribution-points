@@ -8,6 +8,7 @@
 
 | 日期时间 | 任务号 | 模块 | 操作者 | AI 工具 | 状态 | ops | report |
 |---|---|---|---|---|---|---|---|
+| 2026-10-20 23:50 | W1-RULE-ADOPT-4 | docs(采纳 spec-gap #4:独占目录不约束新建文件) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2300_W1-RULE-ADOPT-4_exclusive-dir-new-files.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-20 23:30 | W1-P2-WIRE | web-app(P2 前端接线:积分 #15 + 任务 #16) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2330_W1-P2-WIRE_frontend-wiring.md) | — (第 7、8、8.5 节含交接与未验证维度) |
 | 2026-10-20 23:10 | W1-M2 | auth(401 文案)+ template(M2 `#11`/`#18`/`#19`) | Miao(`sun-521-s`) | DSH | ✅ 完成(PR 待合并) | [ops](ops/2026-10-20-2310_W1-M2_template-crud.md) | [report](reports/2026-10-20-2310_W1-M2_template-crud.md) |
 | 2026-10-20 22:30 | W1-M1-INSTANCES | instances(M1 · TaskInstance 地基 + #16/#17) | 发起人 | DSH | ✅ 完成 | [ops](ops/2026-10-20-2230_W1-M1-INSTANCES_state-machine.md) | — (第 7、8、8.5 节含交接与未验证维度) |
